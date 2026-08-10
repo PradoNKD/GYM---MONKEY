@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./AuthContext";
 import { ApiError } from "./api";
+import { MonkeyMascot } from "./MonkeyMascot";
 
 export function AuthScreen() {
   const { login, cadastrar } = useAuth();
@@ -31,7 +32,10 @@ export function AuthScreen() {
 
   return (
     <main className="card">
-      <h1>Registro de Ponto</h1>
+      <div className="brand">
+        <MonkeyMascot size={32} />
+        <h1>GYN MONKEY</h1>
+      </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
         {modo === "cadastro" && (

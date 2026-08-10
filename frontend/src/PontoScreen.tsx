@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { alternarPonto, ApiError, buscarHistorico } from "./api";
 import { useAuth } from "./AuthContext";
+import { MonkeyMascot } from "./MonkeyMascot";
 import type { Registro } from "./types";
 
 function formatarHorario(iso: string): string {
@@ -50,7 +51,10 @@ export function PontoScreen() {
   return (
     <main className="card">
       <div className="card-header">
-        <h1>Registro de Ponto</h1>
+        <div className="brand">
+          <MonkeyMascot size={26} />
+          <h1>GYN MONKEY</h1>
+        </div>
         <button type="button" className="link-btn" onClick={logout}>
           Sair ({user?.name})
         </button>
@@ -58,8 +62,8 @@ export function PontoScreen() {
 
       <p className={`status ${checkedIn ? "status--in" : "status--out"}`}>
         {ultimoRegistro
-          ? `${checkedIn ? "Em expediente" : "Fora do expediente"} desde ${formatarHorario(ultimoRegistro.timestamp)}`
-          : "Fora do expediente"}
+          ? `${checkedIn ? "Treino em andamento" : "Fora do treino"} desde ${formatarHorario(ultimoRegistro.timestamp)}`
+          : "Fora do treino"}
       </p>
 
       {erro && <p className="auth-erro">{erro}</p>}
@@ -70,14 +74,14 @@ export function PontoScreen() {
         onClick={registrarPonto}
         disabled={carregando || enviando}
       >
-        {enviando ? "Registrando..." : checkedIn ? "Check-out" : "Check-in"}
+        {enviando ? "Registrando..." : checkedIn ? "Finalizar treino" : "Começar treino"}
       </button>
 
       <ul className="historico">
         {historico.map((registro) => (
           <li key={registro.id}>
             <span className={registro.type === "CHECK_IN" ? "tipo--in" : "tipo--out"}>
-              {registro.type === "CHECK_IN" ? "Check-in" : "Check-out"}
+              {registro.type === "CHECK_IN" ? "Início do treino" : "Fim do treino"}
             </span>
             <span>{formatarHorario(registro.timestamp)}</span>
           </li>
