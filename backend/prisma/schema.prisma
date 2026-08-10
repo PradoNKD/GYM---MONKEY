@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  timeEntries  TimeEntry[]
+}
+
+enum TimeEntryType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+model TimeEntry {
+  id        String        @id @default(uuid())
+  type      TimeEntryType
+  timestamp DateTime      @default(now())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
