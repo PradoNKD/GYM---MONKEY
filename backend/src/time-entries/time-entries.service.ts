@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { TimeEntryType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -11,6 +11,27 @@ export class TimeEntriesService {
       where: { userId },
       orderBy: { timestamp: 'desc' },
     });
+  }
+
+  private async findOwnedOrThrow(userId: string, id: string) {
+    const entry = await this.prisma.timeEntry.findUnique({ where: { id } });
+    if (!entry || entry.userId !== userId) {
+      throw new NotFoundException('Registro nao encontrado');
+    }
+    return entry;
+  }
+
+  async update(userId: string, id: string, timestamp: string) {
+    await this.findOwnedOrThrow(userId, id);
+    return this.prisma.timeEntry.update({
+      where: { id },
+      data: { timestamp: new Date(timestamp) },
+    });
+  }
+
+  async remove(userId: string, id: string) {
+    await this.findOwnedOrThrow(userId, id);
+    await this.prisma.timeEntry.delete({ where: { id } });
   }
 
   async toggle(userId: string) {

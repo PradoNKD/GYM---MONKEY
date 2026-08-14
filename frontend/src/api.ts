@@ -61,4 +61,19 @@ export function alternarPonto(token: string) {
   });
 }
 
+export function editarRegistro(token: string, id: string, timestamp: string) {
+  return request<Registro>(`/time-entries/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ timestamp }),
+  });
+}
+
+export function excluirRegistro(token: string, id: string) {
+  return request<void>(`/time-entries/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export { ApiError };
