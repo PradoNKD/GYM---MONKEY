@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./AuthContext";
 import { ApiError } from "./api";
-import { MonkeyMascot } from "./MonkeyMascot";
 
 export function AuthScreen() {
   const { login, cadastrar } = useAuth();
@@ -33,7 +32,7 @@ export function AuthScreen() {
   return (
     <main className="card">
       <div className="brand">
-        <MonkeyMascot size={32} />
+        <img src="/icon-192.png" alt="" className="mascot" width={32} height={32} />
         <h1>GYN MONKEY</h1>
       </div>
 
