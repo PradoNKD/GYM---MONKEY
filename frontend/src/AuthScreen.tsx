@@ -60,9 +60,13 @@ export function AuthScreen() {
           placeholder="Senha"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          minLength={6}
+          minLength={modo === "cadastro" ? 8 : undefined}
+          pattern={modo === "cadastro" ? "(?=.*[A-Za-z])(?=.*\\d).+" : undefined}
+          title={modo === "cadastro" ? "Minimo 8 caracteres, com letra e numero" : undefined}
           required
         />
+
+        {modo === "cadastro" && <p className="auth-dica">Minimo 8 caracteres, com letra e numero</p>}
 
         {erro && <p className="auth-erro">{erro}</p>}
 

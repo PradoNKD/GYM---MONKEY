@@ -78,6 +78,13 @@
   text-align: left;
 }
 
+.auth-dica {
+  color: #6b6b68;
+  font-size: 0.75rem;
+  text-align: left;
+  margin-top: -6px;
+}
+
 .link-btn {
   background: none;
   border: none;
