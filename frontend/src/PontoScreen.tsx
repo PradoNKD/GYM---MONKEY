@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { alternarPonto, ApiError, buscarHistorico, editarRegistro, excluirRegistro } from "./api";
 import { useAuth } from "./AuthContext";
 import type { Registro } from "./types";
+
+interface Sessao {
+  inicio: Registro;
+  fim: Registro;
+}
 
 function formatarHorario(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
@@ -11,16 +16,16 @@ function formatarHorario(iso: string): string {
   });
 }
 
-function formatarDuracao(inicioIso: string, fimIso: string): string {
-  const minutos = Math.max(
-    0,
-    Math.round((new Date(fimIso).getTime() - new Date(inicioIso).getTime()) / 60000),
-  );
-  const horas = Math.floor(minutos / 60);
-  const minutosRestantes = minutos % 60;
+function formatarMinutos(totalMinutos: number): string {
+  const horas = Math.floor(totalMinutos / 60);
+  const minutosRestantes = totalMinutos % 60;
 
   if (horas === 0) return `${minutosRestantes}min`;
   return `${horas}h ${minutosRestantes}min`;
+}
+
+function duracaoEmMinutos(inicioIso: string, fimIso: string): number {
+  return Math.max(0, Math.round((new Date(fimIso).getTime() - new Date(inicioIso).getTime()) / 60000));
 }
 
 function isoParaDatetimeLocal(iso: string): string {
@@ -35,6 +40,64 @@ function ordenarPorHorarioDesc(registros: Registro[]): Registro[] {
   );
 }
 
+function calcularSessoesCompletas(historico: Registro[]): Sessao[] {
+  const sessoes: Sessao[] = [];
+
+  for (let i = 0; i < historico.length; i++) {
+    const fim = historico[i];
+    if (fim.type !== "CHECK_OUT") continue;
+
+    const inicio = historico[i + 1];
+    if (inicio?.type === "CHECK_IN") {
+      sessoes.push({ inicio, fim });
+    }
+  }
+
+  return sessoes;
+}
+
+function chaveDoDia(data: Date): string {
+  return `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
+}
+
+function calcularStreak(historico: Registro[]): number {
+  const diasComRegistro = new Set(historico.map((registro) => chaveDoDia(new Date(registro.timestamp))));
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  if (!diasComRegistro.has(chaveDoDia(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let streak = 0;
+  while (diasComRegistro.has(chaveDoDia(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function inicioDaSemana(): Date {
+  const dia = new Date();
+  dia.setHours(0, 0, 0, 0);
+  const diaDaSemana = dia.getDay();
+  const diasDesdeSegunda = diaDaSemana === 0 ? 6 : diaDaSemana - 1;
+  dia.setDate(dia.getDate() - diasDesdeSegunda);
+  return dia;
+}
+
+function calcularResumoSemanal(sessoes: Sessao[]): { treinos: number; minutos: number } {
+  const inicio = inicioDaSemana();
+  const sessoesDaSemana = sessoes.filter((sessao) => new Date(sessao.fim.timestamp) >= inicio);
+  const minutos = sessoesDaSemana.reduce(
+    (total, sessao) => total + duracaoEmMinutos(sessao.inicio.timestamp, sessao.fim.timestamp),
+    0,
+  );
+
+  return { treinos: sessoesDaSemana.length, minutos };
+}
+
 export function PontoScreen() {
   const { token, user, logout } = useAuth();
   const [historico, setHistorico] = useState<Registro[]>([]);
@@ -47,6 +110,18 @@ export function PontoScreen() {
 
   const ultimoRegistro = historico[0];
   const checkedIn = ultimoRegistro?.type === "CHECK_IN";
+
+  const sessoesCompletas = useMemo(() => calcularSessoesCompletas(historico), [historico]);
+  const duracaoPorRegistroId = useMemo(() => {
+    const mapa = new Map<string, string>();
+    sessoesCompletas.forEach(({ inicio, fim }) => {
+      mapa.set(fim.id, formatarMinutos(duracaoEmMinutos(inicio.timestamp, fim.timestamp)));
+    });
+    return mapa;
+  }, [sessoesCompletas]);
+
+  const streak = useMemo(() => calcularStreak(historico), [historico]);
+  const resumoSemanal = useMemo(() => calcularResumoSemanal(sessoesCompletas), [sessoesCompletas]);
 
   useEffect(() => {
     if (!token) return;
@@ -133,6 +208,21 @@ export function PontoScreen() {
           : "Fora do treino"}
       </p>
 
+      <div className="resumo-semanal">
+        <div className="resumo-item">
+          <span className="resumo-valor">🔥 {streak}</span>
+          <span className="resumo-label">{streak === 1 ? "dia seguido" : "dias seguidos"}</span>
+        </div>
+        <div className="resumo-item">
+          <span className="resumo-valor">{resumoSemanal.treinos}</span>
+          <span className="resumo-label">{resumoSemanal.treinos === 1 ? "treino essa semana" : "treinos essa semana"}</span>
+        </div>
+        <div className="resumo-item">
+          <span className="resumo-valor">{formatarMinutos(resumoSemanal.minutos)}</span>
+          <span className="resumo-label">essa semana</span>
+        </div>
+      </div>
+
       {erro && <p className="auth-erro">{erro}</p>}
 
       <button
@@ -145,14 +235,8 @@ export function PontoScreen() {
       </button>
 
       <ul className="historico">
-        {historico.map((registro, index) => {
-          const checkInCorrespondente =
-            registro.type === "CHECK_OUT" ? historico[index + 1] : undefined;
-          const duracao =
-            checkInCorrespondente?.type === "CHECK_IN"
-              ? formatarDuracao(checkInCorrespondente.timestamp, registro.timestamp)
-              : null;
-
+        {historico.map((registro) => {
+          const duracao = duracaoPorRegistroId.get(registro.id) ?? null;
           const emEdicao = editandoId === registro.id;
 
           return (
