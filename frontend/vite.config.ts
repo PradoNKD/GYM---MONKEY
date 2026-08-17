@@ -11,8 +11,8 @@ export default defineConfig({
       devOptions: { enabled: true },
       includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'GYN MONKEY',
-        short_name: 'GYN MONKEY',
+        name: 'GYM MONKEY',
+        short_name: 'GYM MONKEY',
         description: 'Registro de check-in e check-out de treino',
         theme_color: '#ff4d3d',
         background_color: '#f4f4f2',

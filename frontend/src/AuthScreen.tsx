@@ -33,7 +33,7 @@ export function AuthScreen() {
     <main className="card">
       <div className="brand">
         <img src="/icon-192.png" alt="" className="mascot" width={32} height={32} />
-        <h1>GYN MONKEY</h1>
+        <h1>GYM MONKEY</h1>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>

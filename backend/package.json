@@ -1,7 +1,7 @@
 {
-  "name": "gyn-monkey-backend",
+  "name": "gym-monkey-backend",
   "version": "1.0.0",
-  "description": "API de ponto (check-in/check-out) do GYN-MONKEY, com autenticacao e persistencia em banco de dados",
+  "description": "API de ponto (check-in/check-out) do GYM-MONKEY, com autenticacao e persistencia em banco de dados",
   "private": true,
   "license": "MIT",
   "scripts": {
