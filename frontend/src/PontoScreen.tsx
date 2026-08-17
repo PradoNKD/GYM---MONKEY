@@ -1,4 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  Dumbbell,
+  Flame,
+  LogOut,
+  Pencil,
+  Play,
+  Timer,
+  Trash2,
+  X,
+} from "lucide-react";
 import { alternarPonto, ApiError, buscarHistorico, editarRegistro, excluirRegistro } from "./api";
 import { useAuth } from "./AuthContext";
 import type { Registro } from "./types";
@@ -190,14 +202,96 @@ export function PontoScreen() {
     }
   }
 
+  function renderLinhaRegistro(registro: Registro) {
+    const emEdicao = editandoId === registro.id;
+
+    if (emEdicao) {
+      return (
+        <li key={registro.id} className="linha-registro">
+          <span className="historico-edicao">
+            <input
+              type="datetime-local"
+              value={valorEdicao}
+              onChange={(event) => setValorEdicao(event.target.value)}
+              disabled={salvandoEdicao}
+            />
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => salvarEdicao(registro.id)}
+              disabled={salvandoEdicao}
+              aria-label="Salvar correcao"
+            >
+              <Check size={16} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={cancelarEdicao}
+              disabled={salvandoEdicao}
+              aria-label="Cancelar edicao"
+            >
+              <X size={16} />
+            </button>
+          </span>
+        </li>
+      );
+    }
+
+    const duracao = duracaoPorRegistroId.get(registro.id) ?? null;
+    const Icone = registro.type === "CHECK_IN" ? Play : CheckCircle2;
+
+    return (
+      <Fragment key={registro.id}>
+        <li className="linha-registro">
+          <span className={`linha-tipo ${registro.type === "CHECK_IN" ? "tipo--in" : "tipo--out"}`}>
+            <Icone size={16} />
+            {registro.type === "CHECK_IN" ? "Início do treino" : "Fim do treino"}
+          </span>
+          <span className="historico-horario">{formatarHorario(registro.timestamp)}</span>
+          <span className="historico-acoes">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => iniciarEdicao(registro)}
+              aria-label="Corrigir registro"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn icon-btn--perigo"
+              onClick={() => excluirEntrada(registro.id)}
+              aria-label="Excluir registro"
+            >
+              <Trash2 size={14} />
+            </button>
+          </span>
+        </li>
+        {duracao && (
+          <li className="linha-registro linha-duracao">
+            <span className="linha-tipo">
+              <Timer size={16} />
+              Duração
+            </span>
+            <span className="historico-horario">{duracao}</span>
+          </li>
+        )}
+      </Fragment>
+    );
+  }
+
+  const sessaoAnterior = sessoesCompletas[0];
+
   return (
     <main className="card">
       <div className="card-header">
         <div className="brand">
           <img src="/icon-192.png" alt="" className="mascot" width={26} height={26} />
-          <h1>GYN MONKEY</h1>
+          <h1>GYM MONKEY</h1>
         </div>
         <button type="button" className="link-btn" onClick={logout}>
+          <LogOut size={14} />
           Sair ({user?.name})
         </button>
       </div>
@@ -210,14 +304,17 @@ export function PontoScreen() {
 
       <div className="resumo-semanal">
         <div className="resumo-item">
-          <span className="resumo-valor">🔥 {streak}</span>
+          <Flame size={18} className="resumo-icone resumo-icone--streak" />
+          <span className="resumo-valor">{streak}</span>
           <span className="resumo-label">{streak === 1 ? "dia seguido" : "dias seguidos"}</span>
         </div>
         <div className="resumo-item">
+          <Dumbbell size={18} className="resumo-icone" />
           <span className="resumo-valor">{resumoSemanal.treinos}</span>
           <span className="resumo-label">{resumoSemanal.treinos === 1 ? "treino essa semana" : "treinos essa semana"}</span>
         </div>
         <div className="resumo-item">
+          <Timer size={18} className="resumo-icone" />
           <span className="resumo-valor">{formatarMinutos(resumoSemanal.minutos)}</span>
           <span className="resumo-label">essa semana</span>
         </div>
@@ -234,72 +331,22 @@ export function PontoScreen() {
         {enviando ? "Registrando..." : checkedIn ? "Finalizar treino" : "Começar treino"}
       </button>
 
-      <ul className="historico">
-        {historico.map((registro) => {
-          const duracao = duracaoPorRegistroId.get(registro.id) ?? null;
-          const emEdicao = editandoId === registro.id;
+      {sessaoAnterior && (
+        <section className="secao">
+          <h2 className="secao-titulo">Treino Anterior</h2>
+          <ul className="lista-registros">
+            {renderLinhaRegistro(sessaoAnterior.fim)}
+            {renderLinhaRegistro(sessaoAnterior.inicio)}
+          </ul>
+        </section>
+      )}
 
-          return (
-            <li key={registro.id}>
-              <span className={registro.type === "CHECK_IN" ? "tipo--in" : "tipo--out"}>
-                {registro.type === "CHECK_IN" ? "Início do treino" : "Fim do treino"}
-              </span>
-
-              {emEdicao ? (
-                <span className="historico-edicao">
-                  <input
-                    type="datetime-local"
-                    value={valorEdicao}
-                    onChange={(event) => setValorEdicao(event.target.value)}
-                    disabled={salvandoEdicao}
-                  />
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => salvarEdicao(registro.id)}
-                    disabled={salvandoEdicao}
-                    aria-label="Salvar correcao"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={cancelarEdicao}
-                    disabled={salvandoEdicao}
-                    aria-label="Cancelar edicao"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : (
-                <span className="historico-horario">
-                  {formatarHorario(registro.timestamp)}
-                  {duracao && <span className="historico-duracao">{duracao}</span>}
-                  <span className="historico-acoes">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => iniciarEdicao(registro)}
-                      aria-label="Corrigir registro"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => excluirEntrada(registro.id)}
-                      aria-label="Excluir registro"
-                    >
-                      🗑
-                    </button>
-                  </span>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <section className="secao">
+        <h2 className="secao-titulo">Histórico</h2>
+        <ul className="lista-registros lista-registros--historico">
+          {historico.map((registro) => renderLinhaRegistro(registro))}
+        </ul>
+      </section>
     </main>
   );
 }
