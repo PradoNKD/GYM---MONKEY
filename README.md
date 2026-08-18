@@ -35,17 +35,44 @@ npm run dev          # http://localhost:5173
 
 Mais detalhes de endpoints da API em [backend/README.md](backend/README.md).
 
-## Testes (backend)
+## Testes
+
+143 testes automatizados no total: 51 no backend e 92 no frontend.
+
+### Backend (Jest)
 
 ```bash
 cd backend
-npm test        # unitarios (services, mockando o Prisma)
+npm test          # unitarios (services, mockando o Prisma)
 npm run test:e2e  # ponta a ponta, HTTP real contra um SQLite de teste isolado
 ```
 
 - **Unitários** (`src/**/*.spec.ts`): regras de negocio de `AuthService`, `UsersService`, `TimeEntriesService` e `JwtStrategy`.
 - **E2E** (`test/*.e2e-spec.ts`): fluxo completo via HTTP (registro, login, toggle check-in/check-out, edicao/exclusao), validacao de payload, isolamento de dados entre usuarios e rate limiting (5 tentativas/min em `/auth`).
 - `test:e2e` recria o banco `backend/prisma/test.db` do zero a cada execucao (nao usa o `dev.db`).
+
+### Frontend (Vitest + Testing Library)
+
+```bash
+cd frontend
+npm test          # roda uma vez
+npm run test:watch  # modo watch
+npm run test:ui     # interface grafica do Vitest
+```
+
+- **`calculos.test.ts`**: a logica de negocio da tela — streak, pareamento de
+  sessoes check-in/check-out, resumo semanal (incluindo os limites de
+  segunda/domingo, com horario congelado via `vi.setSystemTime`), duracao e
+  formatacao. Essas funcoes vivem em `src/calculos.ts`, separadas do componente
+  justamente para serem testaveis sem renderizar nada.
+- **`api.test.ts`**: montagem das requisicoes (header `Authorization`, metodo,
+  corpo) e tratamento de resposta — 204 sem corpo, lista de mensagens de
+  validacao, corpo de erro invalido e falha de rede.
+- **`AuthContext.test.tsx`**: persistencia da sessao no `localStorage`,
+  restauracao ao abrir o app, resiliencia a json corrompido e logout.
+- **`AuthScreen.test.tsx`** e **`PontoScreen.test.tsx`**: interacao real do
+  usuario (clique, digitacao) via Testing Library, estados de carregando,
+  mensagens de erro e confirmacao antes de excluir.
 
 ## Vulnerabilidades conhecidas em dependências
 
@@ -69,6 +96,6 @@ Roda hoje **apenas localmente** (não hospedado). Hospedagem em Railway está pl
 
 ### Backlog
 
-- Testes automatizados no frontend (o backend já tem cobertura, ver acima)
 - Histórico agrupado por dia
 - Deploy (Railway)
+- CI que rode os testes automaticamente (hoje é preciso rodar na mão)
