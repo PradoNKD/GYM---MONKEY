@@ -35,12 +35,24 @@ npm run dev          # http://localhost:5173
 
 Mais detalhes de endpoints da API em [backend/README.md](backend/README.md).
 
+## Testes (backend)
+
+```bash
+cd backend
+npm test        # unitarios (services, mockando o Prisma)
+npm run test:e2e  # ponta a ponta, HTTP real contra um SQLite de teste isolado
+```
+
+- **Unitários** (`src/**/*.spec.ts`): regras de negocio de `AuthService`, `UsersService`, `TimeEntriesService` e `JwtStrategy`.
+- **E2E** (`test/*.e2e-spec.ts`): fluxo completo via HTTP (registro, login, toggle check-in/check-out, edicao/exclusao), validacao de payload, isolamento de dados entre usuarios e rate limiting (5 tentativas/min em `/auth`).
+- `test:e2e` recria o banco `backend/prisma/test.db` do zero a cada execucao (nao usa o `dev.db`).
+
 ## Status
 
 Roda hoje **apenas localmente** (não hospedado). Hospedagem em Railway está planejada para quando o app estiver pronto pra sair do ambiente local — junto com a migração do `JWT_SECRET` de desenvolvimento para um valor forte gerado só em produção.
 
 ### Backlog
 
-- Testes automatizados (ainda não há nenhum)
+- Testes automatizados no frontend (o backend já tem cobertura, ver acima)
 - Histórico agrupado por dia
 - Deploy (Railway)
