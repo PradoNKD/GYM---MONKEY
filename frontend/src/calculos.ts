@@ -62,6 +62,68 @@ export function chaveDoDia(data: Date): string {
   return `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
 }
 
+export interface GrupoDeDia {
+  chave: string;
+  /** Meia-noite local do dia, para rotular e ordenar o grupo. */
+  data: Date;
+  registros: Registro[];
+}
+
+/**
+ * Agrupa o historico por dia local, do dia mais recente para o mais antigo
+ * (e, dentro de cada dia, do registro mais recente para o mais antigo).
+ *
+ * O agrupamento e so de exibicao: o pareamento check-in/check-out continua
+ * sendo feito sobre o historico inteiro por calcularSessoesCompletas, senao
+ * um treino que atravessa a meia-noite ficaria sem duracao.
+ */
+export function agruparPorDia(historico: Registro[]): GrupoDeDia[] {
+  const grupos = new Map<string, GrupoDeDia>();
+
+  for (const registro of historico) {
+    const data = new Date(registro.timestamp);
+    const chave = chaveDoDia(data);
+
+    let grupo = grupos.get(chave);
+    if (!grupo) {
+      const meiaNoite = new Date(data);
+      meiaNoite.setHours(0, 0, 0, 0);
+      grupo = { chave, data: meiaNoite, registros: [] };
+      grupos.set(chave, grupo);
+    }
+
+    grupo.registros.push(registro);
+  }
+
+  return [...grupos.values()]
+    .sort((a, b) => b.data.getTime() - a.data.getTime())
+    .map((grupo) => ({ ...grupo, registros: ordenarPorHorarioDesc(grupo.registros) }));
+}
+
+/**
+ * Rotulo do cabecalho de cada dia: "Hoje", "Ontem" ou a data em dd/mm/aaaa.
+ * `referencia` existe para os testes poderem fixar o "hoje".
+ */
+export function rotuloDoDia(data: Date, referencia: Date = new Date()): string {
+  const hoje = new Date(referencia);
+  hoje.setHours(0, 0, 0, 0);
+
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+
+  const alvo = new Date(data);
+  alvo.setHours(0, 0, 0, 0);
+
+  if (chaveDoDia(alvo) === chaveDoDia(hoje)) return "Hoje";
+  if (chaveDoDia(alvo) === chaveDoDia(ontem)) return "Ontem";
+
+  return alvo.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export function calcularStreak(historico: Registro[]): number {
   const diasComRegistro = new Set(historico.map((registro) => chaveDoDia(new Date(registro.timestamp))));
   const cursor = new Date();

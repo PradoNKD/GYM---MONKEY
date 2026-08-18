@@ -8,7 +8,7 @@ App de registro de ponto de treino (check-in/check-out), com identidade visual e
 
 - **Autenticação**: registro e login por e-mail/senha, com JWT (expira em 12h)
 - **Check-in/check-out**: um único botão alterna entre "Começar treino" e "Finalizar treino"
-- **Histórico**: lista de check-ins/check-outs com a duração calculada de cada treino concluído
+- **Histórico agrupado por dia**: os registros vêm separados sob "Hoje", "Ontem" ou a data, do dia mais recente para o mais antigo, com a duração calculada de cada treino concluído. O cabeçalho do dia fica fixo no topo enquanto se rola a lista
 - **Correção/exclusão de registros**: dá pra editar o horário ou apagar um check-in/check-out esquecido direto na tela
 - **Streak e resumo semanal**: dias seguidos treinando (🔥) + total de treinos e tempo treinado na semana atual
 - **PWA instalável**: manifest + service worker (`vite-plugin-pwa`), com o ícone oficial do GYM-MONKEY — dá pra instalar na tela inicial do celular
@@ -39,7 +39,7 @@ Mais detalhes de endpoints da API em [backend/README.md](backend/README.md).
 
 ## Testes
 
-143 testes automatizados no total: 51 no backend e 92 no frontend.
+167 testes automatizados no total: 51 no backend e 116 no frontend.
 
 ### Backend (Jest)
 
@@ -64,9 +64,9 @@ npm run test:ui     # interface grafica do Vitest
 
 - **`calculos.test.ts`**: a logica de negocio da tela — streak, pareamento de
   sessoes check-in/check-out, resumo semanal (incluindo os limites de
-  segunda/domingo, com horario congelado via `vi.setSystemTime`), duracao e
-  formatacao. Essas funcoes vivem em `src/calculos.ts`, separadas do componente
-  justamente para serem testaveis sem renderizar nada.
+  segunda/domingo, com horario congelado via `vi.setSystemTime`), agrupamento
+  por dia, duracao e formatacao. Essas funcoes vivem em `src/calculos.ts`,
+  separadas do componente justamente para serem testaveis sem renderizar nada.
 - **`api.test.ts`**: montagem das requisicoes (header `Authorization`, metodo,
   corpo) e tratamento de resposta — 204 sem corpo, lista de mensagens de
   validacao, corpo de erro invalido e falha de rede.
@@ -110,5 +110,4 @@ falhar por erro de tipo, então essa ordem faz o CI pegar os dois casos.
 
 ### Backlog
 
-- Histórico agrupado por dia
 - Deploy (Railway)

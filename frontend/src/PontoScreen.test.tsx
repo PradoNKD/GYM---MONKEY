@@ -359,6 +359,161 @@ describe("PontoScreen", () => {
     });
   });
 
+  describe("historico agrupado por dia", () => {
+    function diasAtrasAs(dias: number, hora: number, minuto = 0): Date {
+      const data = new Date();
+      data.setDate(data.getDate() - dias);
+      data.setHours(hora, minuto, 0, 0);
+      return data;
+    }
+
+    function secaoHistorico() {
+      return screen.getByText("Histórico").closest("section")!;
+    }
+
+    it("mostra cabecalho 'Hoje' para os registros de hoje", async () => {
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("in-1", "CHECK_IN", hojeAs(10)),
+      ]);
+      render(<PontoScreen />);
+
+      await screen.findByRole("button", { name: /Finalizar treino/ });
+      expect(within(secaoHistorico()).getByText("Hoje")).toBeInTheDocument();
+    });
+
+    it("mostra 'Hoje' e 'Ontem' como grupos separados", async () => {
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("hoje-1", "CHECK_IN", hojeAs(10)),
+        registro("ontem-1", "CHECK_OUT", diasAtrasAs(1, 11)),
+        registro("ontem-2", "CHECK_IN", diasAtrasAs(1, 10)),
+      ]);
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
+      });
+      expect(within(secao).getByText("Ontem")).toBeInTheDocument();
+    });
+
+    it("usa a data em dd/mm/aaaa para dias mais antigos", async () => {
+      const antigo = diasAtrasAs(5, 10);
+      const dataEsperada = antigo.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("antigo-1", "CHECK_IN", antigo),
+      ]);
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getByText(dataEsperada)).toBeInTheDocument();
+      });
+      expect(within(secao).queryByText("Hoje")).not.toBeInTheDocument();
+    });
+
+    it("mostra os grupos do dia mais recente para o mais antigo", async () => {
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("hoje-1", "CHECK_IN", hojeAs(10)),
+        registro("ontem-1", "CHECK_IN", diasAtrasAs(1, 10)),
+      ]);
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
+      });
+
+      const titulos = within(secao)
+        .getAllByRole("heading", { level: 3 })
+        .map((h) => h.textContent);
+      expect(titulos).toEqual(["Hoje", "Ontem"]);
+    });
+
+    it("nao mostra nenhum cabecalho de dia quando o historico esta vazio", async () => {
+      render(<PontoScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Começar treino/ })).toBeEnabled();
+      });
+      expect(
+        within(secaoHistorico()).queryByRole("heading", { level: 3 }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("agrupa os registros no dia certo (cada dia com os seus)", async () => {
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("hoje-in", "CHECK_IN", hojeAs(10)),
+        registro("ontem-out", "CHECK_OUT", diasAtrasAs(1, 11)),
+        registro("ontem-in", "CHECK_IN", diasAtrasAs(1, 10)),
+      ]);
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
+      });
+
+      // Hoje tem 1 registro (so o inicio); ontem tem 2 (inicio e fim) mais a
+      // linha de duracao da sessao concluida.
+      const grupos = secao.querySelectorAll(".grupo-dia");
+      expect(grupos).toHaveLength(2);
+      expect(grupos[0].querySelectorAll(".linha-registro")).toHaveLength(1);
+      expect(
+        grupos[1].querySelectorAll(".linha-registro:not(.linha-duracao)"),
+      ).toHaveLength(2);
+    });
+
+    it("mantem a duracao de um treino que atravessa a meia-noite, mesmo em grupos diferentes", async () => {
+      const inicio = diasAtrasAs(1, 23, 30);
+      const fim = new Date(inicio.getTime() + 60 * 60000);
+
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("out-1", "CHECK_OUT", fim),
+        registro("in-1", "CHECK_IN", inicio),
+      ]);
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getAllByText("Duração").length).toBeGreaterThan(0);
+      });
+      // Os dois registros caem em dias distintos, mas a duracao continua
+      // sendo calculada sobre o historico inteiro.
+      expect(secao.querySelectorAll(".grupo-dia")).toHaveLength(2);
+      expect(within(secao).getAllByText("1h 0min").length).toBeGreaterThan(0);
+    });
+
+    it("reagrupa quando um registro e excluido", async () => {
+      vi.mocked(buscarHistorico).mockResolvedValue([
+        registro("hoje-in", "CHECK_IN", hojeAs(10)),
+        registro("ontem-in", "CHECK_IN", diasAtrasAs(1, 10)),
+      ]);
+      vi.mocked(excluirRegistro).mockResolvedValue(undefined);
+      vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+      render(<PontoScreen />);
+
+      const secao = secaoHistorico();
+      await waitFor(() => {
+        expect(within(secao).getByText("Ontem")).toBeInTheDocument();
+      });
+
+      // Exclui o registro de hoje: o grupo "Hoje" deve desaparecer.
+      const excluirDeHoje = within(
+        secao.querySelectorAll(".grupo-dia")[0] as HTMLElement,
+      ).getByLabelText("Excluir registro");
+      await userEvent.click(excluirDeHoje);
+
+      await waitFor(() => {
+        expect(within(secao).queryByText("Hoje")).not.toBeInTheDocument();
+      });
+      expect(within(secao).getByText("Ontem")).toBeInTheDocument();
+    });
+  });
+
   describe("secao Treino Anterior", () => {
     it("nao aparece quando nao ha sessao concluida", async () => {
       vi.mocked(buscarHistorico).mockResolvedValue([

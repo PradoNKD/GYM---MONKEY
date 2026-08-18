@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  agruparPorDia,
   calcularResumoSemanal,
   calcularSessoesCompletas,
   calcularStreak,
@@ -7,6 +8,7 @@ import {
   formatarMinutos,
   isoParaDatetimeLocal,
   ordenarPorHorarioDesc,
+  rotuloDoDia,
   type Sessao,
 } from "./calculos";
 import type { Registro, TipoRegistro } from "./types";
@@ -342,5 +344,176 @@ describe("isoParaDatetimeLocal", () => {
     expect(reconstruido.getDate()).toBe(original.getDate());
     expect(reconstruido.getHours()).toBe(original.getHours());
     expect(reconstruido.getMinutes()).toBe(original.getMinutes());
+  });
+});
+
+describe("agruparPorDia", () => {
+  it("retorna vazio para historico vazio", () => {
+    expect(agruparPorDia([])).toEqual([]);
+  });
+
+  it("junta num unico grupo os registros do mesmo dia", () => {
+    const historico = [
+      registro("out-1", "CHECK_OUT", emDiasAtras(0, 11)),
+      registro("in-1", "CHECK_IN", emDiasAtras(0, 10)),
+    ];
+
+    const grupos = agruparPorDia(historico);
+
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].registros.map((r) => r.id)).toEqual(["out-1", "in-1"]);
+  });
+
+  it("separa dias diferentes, do mais recente para o mais antigo", () => {
+    const historico = [
+      registro("hoje", "CHECK_IN", emDiasAtras(0, 10)),
+      registro("ontem", "CHECK_IN", emDiasAtras(1, 10)),
+      registro("anteontem", "CHECK_IN", emDiasAtras(2, 10)),
+    ];
+
+    const grupos = agruparPorDia(historico);
+
+    expect(grupos).toHaveLength(3);
+    expect(grupos.map((g) => g.registros[0].id)).toEqual([
+      "hoje",
+      "ontem",
+      "anteontem",
+    ]);
+  });
+
+  it("ordena os registros dentro do dia do mais recente para o mais antigo", () => {
+    const historico = [
+      registro("manha", "CHECK_IN", emDiasAtras(0, 7)),
+      registro("noite", "CHECK_OUT", emDiasAtras(0, 20)),
+      registro("tarde", "CHECK_IN", emDiasAtras(0, 14)),
+    ];
+
+    const grupos = agruparPorDia(historico);
+
+    expect(grupos[0].registros.map((r) => r.id)).toEqual([
+      "noite",
+      "tarde",
+      "manha",
+    ]);
+  });
+
+  it("ordena os grupos mesmo se o historico chegar fora de ordem", () => {
+    const historico = [
+      registro("antigo", "CHECK_IN", emDiasAtras(3, 10)),
+      registro("recente", "CHECK_IN", emDiasAtras(0, 10)),
+      registro("meio", "CHECK_IN", emDiasAtras(1, 10)),
+    ];
+
+    const grupos = agruparPorDia(historico);
+
+    expect(grupos.map((g) => g.registros[0].id)).toEqual([
+      "recente",
+      "meio",
+      "antigo",
+    ]);
+  });
+
+  it("usa meia-noite local como data do grupo", () => {
+    const grupos = agruparPorDia([
+      registro("in-1", "CHECK_IN", emDiasAtras(0, 23, 59)),
+    ]);
+
+    const { data } = grupos[0];
+    expect(data.getHours()).toBe(0);
+    expect(data.getMinutes()).toBe(0);
+    expect(data.getSeconds()).toBe(0);
+  });
+
+  it("nao muta o historico recebido", () => {
+    const historico = [
+      registro("a", "CHECK_IN", emDiasAtras(0, 7)),
+      registro("b", "CHECK_OUT", emDiasAtras(0, 20)),
+    ];
+    const copia = historico.map((r) => r.id);
+
+    agruparPorDia(historico);
+
+    expect(historico.map((r) => r.id)).toEqual(copia);
+  });
+
+  it("separa em dois dias um treino que atravessa a meia-noite, sem perder registros", () => {
+    // CHECK_IN as 23:30 de um dia, CHECK_OUT as 00:30 do dia seguinte
+    const inicio = new Date(2026, 7, 18, 23, 30, 0);
+    const fim = new Date(2026, 7, 19, 0, 30, 0);
+
+    const historico = [
+      registro("out-1", "CHECK_OUT", fim),
+      registro("in-1", "CHECK_IN", inicio),
+    ];
+
+    const grupos = agruparPorDia(historico);
+
+    expect(grupos).toHaveLength(2);
+    expect(grupos[0].registros.map((r) => r.id)).toEqual(["out-1"]);
+    expect(grupos[1].registros.map((r) => r.id)).toEqual(["in-1"]);
+
+    // O pareamento continua funcionando sobre o historico completo: agrupar
+    // e so exibicao, entao a sessao da virada nao perde a duracao.
+    const sessoes = calcularSessoesCompletas(historico);
+    expect(sessoes).toHaveLength(1);
+    expect(duracaoEmMinutos(sessoes[0].inicio.timestamp, sessoes[0].fim.timestamp)).toBe(60);
+  });
+
+  it("preserva todos os registros ao agrupar", () => {
+    const historico = [
+      registro("a", "CHECK_IN", emDiasAtras(0, 10)),
+      registro("b", "CHECK_OUT", emDiasAtras(1, 11)),
+      registro("c", "CHECK_IN", emDiasAtras(1, 10)),
+      registro("d", "CHECK_IN", emDiasAtras(5, 10)),
+    ];
+
+    const grupos = agruparPorDia(historico);
+    const idsAgrupados = grupos.flatMap((g) => g.registros.map((r) => r.id));
+
+    expect(idsAgrupados.sort()).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("rotuloDoDia", () => {
+  const referencia = new Date(2026, 7, 19, 15, 0, 0); // quarta, 19/08/2026
+
+  it("rotula o dia da referencia como 'Hoje'", () => {
+    expect(rotuloDoDia(new Date(2026, 7, 19, 8, 0, 0), referencia)).toBe("Hoje");
+  });
+
+  it("rotula o dia anterior como 'Ontem'", () => {
+    expect(rotuloDoDia(new Date(2026, 7, 18, 22, 0, 0), referencia)).toBe("Ontem");
+  });
+
+  it("usa dd/mm/aaaa para dias mais antigos", () => {
+    expect(rotuloDoDia(new Date(2026, 7, 17, 10, 0, 0), referencia)).toBe(
+      "17/08/2026",
+    );
+  });
+
+  it("ignora a hora ao comparar os dias", () => {
+    expect(rotuloDoDia(new Date(2026, 7, 19, 0, 1, 0), referencia)).toBe("Hoje");
+    expect(rotuloDoDia(new Date(2026, 7, 19, 23, 59, 0), referencia)).toBe("Hoje");
+  });
+
+  it("atravessa a virada de mes corretamente", () => {
+    const primeiroDeSetembro = new Date(2026, 8, 1, 10, 0, 0);
+    expect(rotuloDoDia(new Date(2026, 7, 31, 10, 0, 0), primeiroDeSetembro)).toBe(
+      "Ontem",
+    );
+  });
+
+  it("atravessa a virada de ano corretamente", () => {
+    const primeiroDeJaneiro = new Date(2027, 0, 1, 10, 0, 0);
+    expect(rotuloDoDia(new Date(2026, 11, 31, 10, 0, 0), primeiroDeJaneiro)).toBe(
+      "Ontem",
+    );
+    expect(rotuloDoDia(new Date(2026, 11, 30, 10, 0, 0), primeiroDeJaneiro)).toBe(
+      "30/12/2026",
+    );
+  });
+
+  it("usa a data real como referencia quando nenhuma e informada", () => {
+    expect(rotuloDoDia(new Date())).toBe("Hoje");
   });
 });

@@ -14,6 +14,7 @@ import {
 import { alternarPonto, ApiError, buscarHistorico, editarRegistro, excluirRegistro } from "./api";
 import { useAuth } from "./AuthContext";
 import {
+  agruparPorDia,
   calcularResumoSemanal,
   calcularSessoesCompletas,
   calcularStreak,
@@ -22,6 +23,7 @@ import {
   formatarMinutos,
   isoParaDatetimeLocal,
   ordenarPorHorarioDesc,
+  rotuloDoDia,
 } from "./calculos";
 import type { Registro } from "./types";
 
@@ -49,6 +51,7 @@ export function PontoScreen() {
 
   const streak = useMemo(() => calcularStreak(historico), [historico]);
   const resumoSemanal = useMemo(() => calcularResumoSemanal(sessoesCompletas), [sessoesCompletas]);
+  const historicoPorDia = useMemo(() => agruparPorDia(historico), [historico]);
 
   useEffect(() => {
     if (!token) return;
@@ -258,9 +261,16 @@ export function PontoScreen() {
 
       <section className="secao">
         <h2 className="secao-titulo">Histórico</h2>
-        <ul className="lista-registros lista-registros--historico">
-          {historico.map((registro) => renderLinhaRegistro(registro))}
-        </ul>
+        <div className="lista-registros--historico">
+          {historicoPorDia.map((grupo) => (
+            <div key={grupo.chave} className="grupo-dia">
+              <h3 className="grupo-dia-titulo">{rotuloDoDia(grupo.data)}</h3>
+              <ul className="lista-registros">
+                {grupo.registros.map((registro) => renderLinhaRegistro(registro))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </section>
     </main>
   );

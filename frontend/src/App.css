@@ -227,8 +227,28 @@
 }
 
 .lista-registros--historico {
-  max-height: 220px;
+  max-height: 260px;
   overflow-y: auto;
+}
+
+.grupo-dia + .grupo-dia {
+  margin-top: 14px;
+}
+
+/* Fica visivel no topo enquanto se rola o historico, para nao se perder
+   de qual dia sao os registros na tela. */
+.grupo-dia-titulo {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #faf9f7;
+  padding: 4px 0 6px;
+  font-family: "Anton", sans-serif;
+  font-weight: 400;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b6b68;
 }
 
 .linha-registro {
