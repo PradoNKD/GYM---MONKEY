@@ -9,7 +9,7 @@ import {
 import { entrar, registrar } from "./api";
 import type { Usuario } from "./types";
 
-const STORAGE_KEY = "gyn-monkey.auth";
+const STORAGE_KEY = "gym-monkey.auth";
 
 interface SessaoArmazenada {
   token: string;
