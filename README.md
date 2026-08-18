@@ -1,5 +1,7 @@
 # GYM MONKEY
 
+[![CI](https://github.com/PradoNKD/GYM---MONKEY/actions/workflows/ci.yml/badge.svg)](https://github.com/PradoNKD/GYM---MONKEY/actions/workflows/ci.yml)
+
 App de registro de ponto de treino (check-in/check-out), com identidade visual estilo GymRats. Cada usuário tem sua própria conta e histórico.
 
 ## Funcionalidades
@@ -94,8 +96,19 @@ subindo para `bcrypt@6.0.0`, que abandonou o node-pre-gyp; `nanoid` (alta) e
 
 Roda hoje **apenas localmente** (não hospedado). Hospedagem em Railway está planejada para quando o app estiver pronto pra sair do ambiente local — junto com a migração do `JWT_SECRET` de desenvolvimento para um valor forte gerado só em produção.
 
+### Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada
+push e pull request na `main`, em dois jobs paralelos:
+
+- **backend**: `npm ci` → `prisma generate` → `tsc --noEmit` → unitários → e2e
+- **frontend**: `npm ci` → lint → testes → build
+
+O build do frontend roda depois dos testes de propósito, porque ele também
+checa os tipos (`tsc -b`) — já aconteceu de os testes passarem e o build
+falhar por erro de tipo, então essa ordem faz o CI pegar os dois casos.
+
 ### Backlog
 
 - Histórico agrupado por dia
 - Deploy (Railway)
-- CI que rode os testes automaticamente (hoje é preciso rodar na mão)
