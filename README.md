@@ -37,6 +37,8 @@ npm run dev          # http://localhost:5173
 
 Mais detalhes de endpoints da API em [backend/README.md](backend/README.md).
 
+Retomando de outra máquina ou continuando o deploy? Ver [docs/HANDOFF.md](docs/HANDOFF.md) — estado atual, setup em máquina nova e o checklist dos passos que faltam.
+
 ## Testes
 
 167 testes automatizados no total: 51 no backend e 116 no frontend.
