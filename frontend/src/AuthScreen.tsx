@@ -31,7 +31,10 @@ export function AuthScreen() {
 
   return (
     <main className="card">
-      <h1>Registro de Ponto</h1>
+      <div className="brand">
+        <img src="/icon-192.png" alt="" className="mascot" width={32} height={32} />
+        <h1>GYM MONKEY</h1>
+      </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
         {modo === "cadastro" && (
@@ -57,9 +60,13 @@ export function AuthScreen() {
           placeholder="Senha"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          minLength={6}
+          minLength={modo === "cadastro" ? 8 : undefined}
+          pattern={modo === "cadastro" ? "(?=.*[A-Za-z])(?=.*\\d).+" : undefined}
+          title={modo === "cadastro" ? "Minimo 8 caracteres, com letra e numero" : undefined}
           required
         />
+
+        {modo === "cadastro" && <p className="auth-dica">Minimo 8 caracteres, com letra e numero</p>}
 
         {erro && <p className="auth-erro">{erro}</p>}
 
