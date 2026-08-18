@@ -47,6 +47,22 @@ npm run test:e2e  # ponta a ponta, HTTP real contra um SQLite de teste isolado
 - **E2E** (`test/*.e2e-spec.ts`): fluxo completo via HTTP (registro, login, toggle check-in/check-out, edicao/exclusao), validacao de payload, isolamento de dados entre usuarios e rate limiting (5 tentativas/min em `/auth`).
 - `test:e2e` recria o banco `backend/prisma/test.db` do zero a cada execucao (nao usa o `dev.db`).
 
+## Vulnerabilidades conhecidas em dependências
+
+Uma aviso de `npm audit` segue em aberto no backend, **sem correção disponível**:
+
+- **`deepmerge-ts` <8.0.0 (alta)** — estouro de pilha ao mesclar objetos recursivos.
+  Cadeia: `prisma` (devDependency) → `@prisma/config` → `deepmerge-ts`.
+  Roda apenas no **CLI do Prisma**, lendo a nossa própria config — não vai para
+  produção e não processa entrada de usuário. O `@prisma/config@7.9.1` (mais
+  recente na data desta anotação, 18/08/2026) **ainda fixa `deepmerge-ts@7.1.5`**,
+  então `npm audit fix` é um no-op aqui. Forçar um `overrides` quebraria o CLI,
+  já que o pin do Prisma é exato — o caminho é aguardar o Prisma atualizar.
+
+Já corrigidas: `tar` (crítica, via `bcrypt` → `@mapbox/node-pre-gyp`) resolvida
+subindo para `bcrypt@6.0.0`, que abandonou o node-pre-gyp; `nanoid` (alta) e
+`postcss` (moderada) no frontend, via `npm audit fix`.
+
 ## Status
 
 Roda hoje **apenas localmente** (não hospedado). Hospedagem em Railway está planejada para quando o app estiver pronto pra sair do ambiente local — junto com a migração do `JWT_SECRET` de desenvolvimento para um valor forte gerado só em produção.
