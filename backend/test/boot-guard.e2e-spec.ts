@@ -22,7 +22,10 @@ describe('Guarda de boot (e2e)', () => {
         env: {
           ...process.env,
           TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs"}',
-          DATABASE_URL: 'file:./dev.db',
+          // So precisa ser uma URL bem-formada: o require de app.module roda o
+          // validate mas nao conecta no banco, entao nenhum Postgres real e
+          // tocado aqui.
+          DATABASE_URL: 'postgresql://u:p@localhost:5432/qualquer',
           JWT_SECRET: 'x'.repeat(32),
           ...env,
         },

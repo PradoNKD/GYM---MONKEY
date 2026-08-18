@@ -14,11 +14,33 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (typecheck + 51 testes)
+    name: Backend (typecheck + 70 testes)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+
+    # Postgres de servico: um container efemero, novo a cada run, para os
+    # testes rodarem contra o mesmo motor que a producao (Neon), e nao contra
+    # um banco diferente que mascararia diferencas de comportamento.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gym_monkey_test
+        ports:
+          - 5432:5432
+        # Espera o Postgres aceitar conexao antes de comecar os steps.
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gym_monkey_test?schema=public
 
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +63,9 @@ jobs:
       - name: Testes unitarios
         run: npm test
 
-      # Nao precisa de .env: test/jest-e2e.setup.js define DATABASE_URL e
-      # JWT_SECRET, e o pretest:e2e cria o SQLite de teste do zero.
+      # Nao precisa de .env: test/jest-e2e.setup.js define DATABASE_URL (a
+      # partir do TEST_DATABASE_URL acima) e JWT_SECRET, e o pretest:e2e roda
+      # as migrations no Postgres de servico.
       - name: Testes e2e
         run: npm run test:e2e
 
