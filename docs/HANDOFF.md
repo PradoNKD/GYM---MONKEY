@@ -10,9 +10,13 @@ ferramenta.
 
 ## Onde o projeto está
 
-App de check-in de academia funcionando **localmente**, ainda **não publicado**.
-Frontend (React+Vite) + backend (NestJS) + Postgres, com autenticação por
-usuário, histórico agrupado por dia, streak/resumo semanal e PWA.
+**No ar** 🎉 — https://pradonkd.github.io/GYM---MONKEY/ (frontend no GitHub
+Pages, backend em https://gym-monkey-api.onrender.com, banco no Neon). Deploy
+concluído e validado ponta a ponta em 2026-08-18.
+
+App de check-in de academia: frontend (React+Vite) + backend (NestJS) +
+Postgres, com autenticação por usuário, histórico agrupado por dia,
+streak/resumo semanal e PWA.
 
 **Qualidade:** 186 testes automatizados (70 no backend, 116 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).

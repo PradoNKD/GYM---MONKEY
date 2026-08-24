@@ -96,7 +96,17 @@ subindo para `bcrypt@6.0.0`, que abandonou o node-pre-gyp; `nanoid` (alta) e
 
 ## Status
 
-Roda hoje **apenas localmente** (não hospedado). Hospedagem em Railway está planejada para quando o app estiver pronto pra sair do ambiente local — junto com a migração do `JWT_SECRET` de desenvolvimento para um valor forte gerado só em produção.
+**No ar** 🎉 — https://pradonkd.github.io/GYM---MONKEY/
+
+Stack gratuita:
+
+- **Frontend**: GitHub Pages (deploy via [`deploy-pages.yml`](.github/workflows/deploy-pages.yml))
+- **Backend**: Render — https://gym-monkey-api.onrender.com (blueprint em [`render.yaml`](render.yaml))
+- **Banco**: Neon (Postgres gerenciado, região sa-east-1)
+
+Observação: no plano free o backend "dorme" após ~15 min ocioso, então o
+primeiro acesso depois de um tempo parado leva ~30–60s (cold start); depois
+fica rápido. Passo a passo do deploy e como retomar em [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ### Integração contínua
 
@@ -112,4 +122,4 @@ falhar por erro de tipo, então essa ordem faz o CI pegar os dois casos.
 
 ### Backlog
 
-- Deploy (Railway)
+- (deploy concluído; sem itens abertos no momento)
