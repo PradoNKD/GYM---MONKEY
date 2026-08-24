@@ -25,7 +25,8 @@ jobs:
     # um banco diferente que mascararia diferencas de comportamento.
     services:
       postgres:
-        image: postgres:17
+        # PG 18 para casar com o Neon (producao), que roda Postgres 18.
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
