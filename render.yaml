@@ -1,0 +1,30 @@
+# Blueprint do Render para o backend (NestJS + Prisma).
+# No Render: New > Blueprint, aponte pra este repositorio. Ele cria o web
+# service ja com estas configuracoes; voce so preenche os 3 segredos abaixo.
+#
+# Banco: NAO usamos o Postgres do Render (o free e apagado em 30 dias). O
+# DATABASE_URL aponta pro Neon.
+services:
+  - type: web
+    name: gym-monkey-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    # postinstall roda `prisma generate`; build compila o Nest.
+    buildCommand: npm ci && npm run build
+    # migrate deploy (idempotente) roda antes de subir, garantindo o schema no
+    # Neon; depois inicia a API. No free nao ha preDeployCommand, entao fica no
+    # proprio start.
+    startCommand: npm run release && npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      # Render injeta PORT automaticamente; o codigo ja le process.env.PORT.
+      - key: NODE_VERSION
+        value: "22"
+      # sync:false = nao vem do arquivo; voce cola no dashboard do Render.
+      - key: JWT_SECRET
+        sync: false # gere um novo, forte, so de producao (32+ chars)
+      - key: DATABASE_URL
+        sync: false # connection string do Neon (com sslmode=require)
+      - key: FRONTEND_URL
+        sync: false # URL do GitHub Pages, ex.: https://pradonkd.github.io/GYM---MONKEY

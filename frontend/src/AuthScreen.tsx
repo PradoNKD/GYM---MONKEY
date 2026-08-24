@@ -32,7 +32,7 @@ export function AuthScreen() {
   return (
     <main className="card">
       <div className="brand">
-        <img src="/icon-192.png" alt="" className="mascot" width={32} height={32} />
+        <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" className="mascot" width={32} height={32} />
         <h1>GYM MONKEY</h1>
       </div>
 

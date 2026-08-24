@@ -1,0 +1,79 @@
+name: Deploy frontend (GitHub Pages)
+
+# Publica o frontend no GitHub Pages a cada push na main que mexa no frontend.
+# O backend NAO e publicado aqui - ele roda no Render (deploy automatico do
+# proprio Render a partir do GitHub).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch: {} # permite disparar manualmente pela aba Actions
+
+# Permissoes exigidas pelo deploy oficial do Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicacao por vez; nao cancela uma que ja esta no ar.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build do frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # A URL da API (Render) e obrigatoria: sem ela o build cairia no fallback
+      # http://localhost:3000 e o site publicado nao falaria com backend nenhum.
+      # Defina em Settings > Secrets and variables > Actions > Variables:
+      #   VITE_API_URL = https://<seu-servico>.onrender.com
+      - name: Confere VITE_API_URL
+        run: |
+          if [ -z "${{ vars.VITE_API_URL }}" ]; then
+            echo "::error::A variavel de repositorio VITE_API_URL nao esta definida."
+            echo "Defina em Settings > Secrets and variables > Actions > Variables com a URL do backend no Render."
+            exit 1
+          fi
+
+      - name: Instala dependencias
+        run: npm ci
+
+      - name: Build
+        env:
+          # Subcaminho do Pages (nome do repositorio). No runner Linux nao ha a
+          # conversao de path do Git Bash, entao o valor vai limpo.
+          VITE_BASE: /GYM---MONKEY/
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: npm run build
+
+      - name: Prepara artefato do Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    name: Publica no Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

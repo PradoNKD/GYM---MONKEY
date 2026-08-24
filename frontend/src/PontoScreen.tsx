@@ -205,7 +205,7 @@ export function PontoScreen() {
     <main className="card">
       <div className="card-header">
         <div className="brand">
-          <img src="/icon-192.png" alt="" className="mascot" width={26} height={26} />
+          <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" className="mascot" width={26} height={26} />
           <h1>GYM MONKEY</h1>
         </div>
         <button type="button" className="link-btn" onClick={logout}>
