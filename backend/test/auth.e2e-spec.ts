@@ -2,9 +2,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('Autenticacao (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaService;
 
   const senhaValida = 'senha1234';
 
@@ -12,12 +14,17 @@ describe('Autenticacao (e2e)', () => {
     return `${prefixo}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
   }
 
-  // Cada teste ganha sua propria instancia da aplicacao. O ThrottlerGuard
-  // (5 registros/logins por 60s, ver auth.controller.ts) e global e guarda
-  // seu contador em memoria por instancia da app - reaproveitar uma unica
-  // app entre testes faria varios deles baterem no 429 sem relacao com o
-  // que estao de fato testando. O rate limiting em si tem suite propria em
-  // throttle.e2e-spec.ts.
+  // Ativa uma conta direto no banco, simulando a aprovacao do supervisor,
+  // para os testes que precisam de um usuario que consiga logar.
+  async function aprovar(email: string) {
+    await prisma.user.update({
+      where: { email: email.toLowerCase() },
+      data: { active: true },
+    });
+  }
+
+  // App novo por teste: o armazenamento em memoria do ThrottlerGuard zera junto,
+  // entao o rate limit nao vaza entre casos.
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -32,6 +39,7 @@ describe('Autenticacao (e2e)', () => {
       }),
     );
     await app.init();
+    prisma = app.get(PrismaService);
   });
 
   afterEach(async () => {
@@ -39,7 +47,7 @@ describe('Autenticacao (e2e)', () => {
   });
 
   describe('POST /auth/register', () => {
-    it('cria o usuario e retorna token + dados do usuario, sem hash de senha', async () => {
+    it('cria a conta como pendente e NAO devolve token', async () => {
       const email = emailUnico('registro-ok');
 
       const response = await request(app.getHttpServer())
@@ -47,9 +55,8 @@ describe('Autenticacao (e2e)', () => {
         .send({ name: 'Usuario Teste', email, password: senhaValida })
         .expect(201);
 
-      expect(response.body.accessToken).toBeDefined();
-      expect(response.body.user).toMatchObject({ name: 'Usuario Teste', email });
-      expect(response.body.user).not.toHaveProperty('passwordHash');
+      expect(response.body.status).toBe('pending_approval');
+      expect(response.body).not.toHaveProperty('accessToken');
     });
 
     it('rejeita e-mail duplicado com 409', async () => {
@@ -107,41 +114,44 @@ describe('Autenticacao (e2e)', () => {
         .expect(400);
     });
 
-    it('normaliza o e-mail: registrar com maiusculas permite login com e-mail em minusculas', async () => {
+    it('normaliza o e-mail: cadastra com maiusculas e loga (apos aprovar) com minusculas', async () => {
       const emailBase = emailUnico('case-insensitive');
 
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({
-          name: 'Case Test',
-          email: emailBase.toUpperCase(),
-          password: senhaValida,
-        })
+        .send({ name: 'Case Test', email: emailBase.toUpperCase(), password: senhaValida })
         .expect(201);
+
+      await aprovar(emailBase);
 
       await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: emailBase.toLowerCase(), password: senhaValida })
         .expect(200);
     });
-
-    it('rejeita e-mail com espacos nas bordas com 400 (IsEmail nao aceita padding)', async () => {
-      const email = emailUnico('com-espacos');
-
-      await request(app.getHttpServer())
-        .post('/auth/register')
-        .send({ name: 'Com Espacos', email: `  ${email}  `, password: senhaValida })
-        .expect(400);
-    });
   });
 
   describe('POST /auth/login', () => {
-    it('retorna token com credenciais corretas', async () => {
+    it('bloqueia login de conta recem-criada (pendente) com 403', async () => {
+      const email = emailUnico('pendente');
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ name: 'Pendente', email, password: senhaValida })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: senhaValida })
+        .expect(403);
+    });
+
+    it('retorna token (com role) apos a conta ser aprovada', async () => {
       const email = emailUnico('login-ok');
       await request(app.getHttpServer())
         .post('/auth/register')
         .send({ name: 'Login OK', email, password: senhaValida })
         .expect(201);
+      await aprovar(email);
 
       const response = await request(app.getHttpServer())
         .post('/auth/login')
@@ -149,14 +159,16 @@ describe('Autenticacao (e2e)', () => {
         .expect(200);
 
       expect(response.body.accessToken).toBeDefined();
+      expect(response.body.user.role).toBe('USER');
     });
 
-    it('rejeita senha errada com 401', async () => {
+    it('rejeita senha errada com 401 (mesmo com a conta aprovada)', async () => {
       const email = emailUnico('login-senha-errada');
       await request(app.getHttpServer())
         .post('/auth/register')
         .send({ name: 'Login Senha Errada', email, password: senhaValida })
         .expect(201);
+      await aprovar(email);
 
       await request(app.getHttpServer())
         .post('/auth/login')

@@ -24,6 +24,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    return { id: user.id, name: user.name, email: user.email };
+    // Se o supervisor desativar o usuario, o token que ele ja tinha para de
+    // funcionar na proxima requisicao.
+    if (!user.active) {
+      throw new UnauthorizedException('Conta desativada');
+    }
+
+    return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }

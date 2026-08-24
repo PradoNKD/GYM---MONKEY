@@ -19,11 +19,13 @@ describe('JwtStrategy', () => {
     );
   });
 
-  it('retorna apenas id, nome e e-mail quando o usuario do token existe', async () => {
+  it('retorna id, nome, e-mail e role quando o usuario existe e esta ativo', async () => {
     usersService.findById.mockResolvedValue({
       id: 'user-1',
       name: 'Fulano',
       email: 'fulano@example.com',
+      role: 'USER',
+      active: true,
       passwordHash: 'nao-deveria-sair-daqui',
     });
 
@@ -33,6 +35,7 @@ describe('JwtStrategy', () => {
       id: 'user-1',
       name: 'Fulano',
       email: 'fulano@example.com',
+      role: 'USER',
     });
     expect(result).not.toHaveProperty('passwordHash');
   });
@@ -41,6 +44,20 @@ describe('JwtStrategy', () => {
     usersService.findById.mockResolvedValue(null);
 
     await expect(strategy.validate({ sub: 'user-deletado' })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('lanca UnauthorizedException quando a conta foi desativada (token deixa de valer)', async () => {
+    usersService.findById.mockResolvedValue({
+      id: 'user-1',
+      name: 'Fulano',
+      email: 'fulano@example.com',
+      role: 'USER',
+      active: false,
+    });
+
+    await expect(strategy.validate({ sub: 'user-1' })).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });

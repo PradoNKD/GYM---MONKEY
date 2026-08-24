@@ -2,10 +2,12 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('Time entries / check-in-check-out (e2e)', () => {
   let app: INestApplication;
   let server: any;
+  let prisma: PrismaService;
 
   let tokenUserA: string;
   let tokenUserB: string;
@@ -14,22 +16,26 @@ describe('Time entries / check-in-check-out (e2e)', () => {
     return `${prefixo}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
   }
 
-  async function registrar(nome: string, prefixoEmail: string) {
-    const response = await request(server)
+  // Novo usuario entra inativo: registra, aprova direto no banco (como faria o
+  // supervisor) e loga pra pegar o token.
+  async function registrarAtivoELogar(nome: string, prefixoEmail: string) {
+    const email = emailUnico(prefixoEmail);
+    await request(server)
       .post('/auth/register')
-      .send({
-        name: nome,
-        email: emailUnico(prefixoEmail),
-        password: 'senha1234',
-      })
+      .send({ name: nome, email, password: 'senha1234' })
       .expect(201);
-    return response.body.accessToken as string;
+    await prisma.user.update({
+      where: { email: email.toLowerCase() },
+      data: { active: true },
+    });
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ email, password: 'senha1234' })
+      .expect(200);
+    return login.body.accessToken as string;
   }
 
   beforeAll(async () => {
-    // So 2 chamadas a /auth/register neste arquivo (bem abaixo do limite de
-    // 5/60s do ThrottlerGuard), por isso nao ha necessidade de burlar o
-    // rate limiting aqui. Ele tem suite propria em throttle.e2e-spec.ts.
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -44,9 +50,10 @@ describe('Time entries / check-in-check-out (e2e)', () => {
     );
     await app.init();
     server = app.getHttpServer();
+    prisma = app.get(PrismaService);
 
-    tokenUserA = await registrar('Usuario A', 'user-a');
-    tokenUserB = await registrar('Usuario B', 'user-b');
+    tokenUserA = await registrarAtivoELogar('Usuario A', 'user-a');
+    tokenUserB = await registrarAtivoELogar('Usuario B', 'user-b');
   });
 
   afterAll(async () => {

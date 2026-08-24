@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -14,6 +18,8 @@ describe('AuthService', () => {
     name: 'Usuario Existente',
     email: 'existente@example.com',
     passwordHash: '',
+    role: 'USER',
+    active: true,
   };
 
   beforeAll(async () => {
@@ -31,7 +37,7 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    it('cria o usuario e retorna token quando o e-mail ainda nao existe', async () => {
+    it('cria o usuario mas NAO loga (fica pendente de aprovacao)', async () => {
       usersService.findByEmail.mockResolvedValue(null);
       usersService.create.mockResolvedValue({
         id: 'user-2',
@@ -45,13 +51,11 @@ describe('AuthService', () => {
         password: 'senha1234',
       });
 
-      expect(result.accessToken).toBe('signed.jwt.token');
-      expect(result.user).toEqual({
-        id: 'user-2',
-        name: 'Novo Usuario',
-        email: 'novo@example.com',
-      });
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-2' });
+      expect(result.status).toBe('pending_approval');
+      expect(result).not.toHaveProperty('accessToken');
+      // Nao emite token no cadastro: a conta so entra apos aprovacao.
+      expect(jwtService.sign).not.toHaveBeenCalled();
+      expect(usersService.create).toHaveBeenCalled();
     });
 
     it('normaliza o e-mail (trim + lowercase) antes de checar duplicidade', async () => {
@@ -86,28 +90,10 @@ describe('AuthService', () => {
 
       expect(usersService.create).not.toHaveBeenCalled();
     });
-
-    it('nao inclui o hash da senha na resposta', async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-      usersService.create.mockResolvedValue({
-        id: 'user-4',
-        name: 'Sem Hash',
-        email: 'semhash@example.com',
-        passwordHash: 'hash-nao-deveria-sair',
-      });
-
-      const result = await authService.register({
-        name: 'Sem Hash',
-        email: 'semhash@example.com',
-        password: 'senha1234',
-      });
-
-      expect(result.user).not.toHaveProperty('passwordHash');
-    });
   });
 
   describe('login', () => {
-    it('retorna token quando e-mail e senha estao corretos', async () => {
+    it('retorna token quando e-mail e senha estao corretos e a conta esta ativa', async () => {
       usersService.findByEmail.mockResolvedValue(existingUser);
 
       const result = await authService.login({
@@ -117,6 +103,37 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('signed.jwt.token');
       expect(result.user.id).toBe(existingUser.id);
+      expect(result.user.role).toBe('USER');
+    });
+
+    it('lanca ForbiddenException quando a conta esta inativa (aguardando aprovacao)', async () => {
+      usersService.findByEmail.mockResolvedValue({
+        ...existingUser,
+        active: false,
+      });
+
+      await expect(
+        authService.login({
+          email: existingUser.email,
+          password: 'senha1234',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('so checa o active depois da senha (nao vaza que a conta existe)', async () => {
+      // Conta inativa + senha errada deve dar Unauthorized (senha), nao
+      // Forbidden (inativa): a ordem evita revelar contas existentes.
+      usersService.findByEmail.mockResolvedValue({
+        ...existingUser,
+        active: false,
+      });
+
+      await expect(
+        authService.login({
+          email: existingUser.email,
+          password: 'senhaErrada1',
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
     it('lanca UnauthorizedException quando o e-mail nao existe', async () => {
