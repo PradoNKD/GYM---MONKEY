@@ -34,11 +34,14 @@ Stack gratuita escolhida: **GitHub Pages** (frontend) + **Render** (backend) +
 backend no Render "dorme" após 15 min ocioso e o primeiro acesso demora
 ~30–60s (cold start) — ok pra fase de validação.
 
-3. **Deploy do backend no Render + banco no Neon**
-4. **Frontend no GitHub Pages** apontando pra API do Render
-5. **Travar CORS** (FRONTEND_URL) e validar fim a fim
+**O preparo de código dos passos 3–5 já está feito** (commit `d9fac0b`):
+- `frontend/vite.config.ts`: `base` via `VITE_BASE` (subcaminho do Pages);
+  manifest do PWA derivado do base; `<img>` usando `import.meta.env.BASE_URL`.
+- `.github/workflows/deploy-pages.yml`: publica o frontend no Pages.
+- `render.yaml`: blueprint do backend no Render.
 
-O detalhamento e o checklist de contas estão no fim deste documento.
+**O que resta é só a parte de contas** (login no navegador), na ordem
+Neon → Render → Pages. Checklist detalhado no fim deste documento.
 
 ---
 
@@ -109,26 +112,29 @@ Render precisa da URL do Neon, e o frontend precisa da URL do Render.
    `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`.
 3. Guardar essa URL: vai no `DATABASE_URL` do Render.
 
-### 3b. Render (backend) — web service free
+### 3b. Render (backend) — web service free, via Blueprint
+
+O `render.yaml` na raiz já define build, start (com `migrate deploy`), health
+check e as variáveis. Não precisa configurar campo a campo.
 
 1. Criar conta em render.com, conectar o repositório do GitHub.
-2. New > Web Service, root directory `backend`.
-3. Build command: `npm ci && npm run build` — Start: `npm run release && npm run start:prod`
-   (o `release` roda `prisma migrate deploy` no Neon antes de subir).
-4. Variáveis de ambiente:
+2. New > **Blueprint** > escolher este repositório (o Render lê o `render.yaml`).
+3. Preencher os 3 segredos que ficaram como `sync:false`:
    - `DATABASE_URL` = a connection string do Neon
    - `JWT_SECRET` = um segredo **novo**, forte, só de produção (gerar como acima)
-   - `FRONTEND_URL` = a URL final do GitHub Pages (ver 4) — pode preencher depois
-   - `NODE_VERSION` = 22 (ou 24)
-5. Health check path: `/health`.
-6. Anotar a URL pública do serviço (ex.: `https://gym-monkey-api.onrender.com`).
+   - `FRONTEND_URL` = a URL do GitHub Pages (ver passo 4) — pode preencher depois
+4. Anotar a URL pública do serviço (ex.: `https://gym-monkey-api.onrender.com`).
 
 ### 4. Frontend no GitHub Pages
 
-1. Falta preparar (do lado do código): ajustar o `base` do Vite pro subcaminho
-   `/GYM---MONKEY/`, ajustar o PWA, e criar o workflow de deploy pro Pages.
-2. O build do frontend precisa do `VITE_API_URL` = URL do Render (passo 3b).
-3. Ligar o Pages em Settings > Pages do repositório (source: GitHub Actions).
+Código já pronto: `deploy-pages.yml` faz o build (com o subcaminho) e publica.
+Falta só:
+1. Em Settings > Secrets and variables > Actions > **Variables**, criar
+   `VITE_API_URL` = a URL do Render (passo 3b). Sem ela, o workflow falha de
+   propósito (não publica um front apontando pra localhost).
+2. Em Settings > **Pages**, definir Source = **GitHub Actions**.
+3. Disparar o `deploy-pages` (push em `frontend/**` ou "Run workflow" na aba
+   Actions). URL final: `https://pradonkd.github.io/GYM---MONKEY/`.
 
 ### 5. Fechar o ciclo
 
