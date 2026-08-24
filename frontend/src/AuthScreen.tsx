@@ -9,18 +9,25 @@ export function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErro(null);
+    setAviso(null);
     setCarregando(true);
 
     try {
       if (modo === "login") {
         await login(email, password);
       } else {
-        await cadastrar(name, email, password);
+        const resposta = await cadastrar(name, email, password);
+        // Cadastro nao loga: mostra a mensagem de aprovacao pendente e volta
+        // pro modo login, ja com o e-mail preenchido.
+        setModo("login");
+        setPassword("");
+        setAviso(resposta.message);
       }
     } catch (error) {
       setErro(error instanceof ApiError ? error.message : "Nao foi possivel conectar ao servidor");
@@ -68,6 +75,7 @@ export function AuthScreen() {
 
         {modo === "cadastro" && <p className="auth-dica">Minimo 8 caracteres, com letra e numero</p>}
 
+        {aviso && <p className="auth-aviso">{aviso}</p>}
         {erro && <p className="auth-erro">{erro}</p>}
 
         <button type="submit" className="btn btn--checkin" disabled={carregando}>
@@ -80,6 +88,7 @@ export function AuthScreen() {
         className="link-btn"
         onClick={() => {
           setErro(null);
+          setAviso(null);
           setModo((atual) => (atual === "login" ? "cadastro" : "login"));
         }}
       >

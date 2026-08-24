@@ -7,6 +7,7 @@ import {
   LogOut,
   Pencil,
   Play,
+  ShieldCheck,
   Timer,
   Trash2,
   X,
@@ -27,7 +28,7 @@ import {
 } from "./calculos";
 import type { Registro } from "./types";
 
-export function PontoScreen() {
+export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
   const [historico, setHistorico] = useState<Registro[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -208,10 +209,18 @@ export function PontoScreen() {
           <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" className="mascot" width={26} height={26} />
           <h1>GYM MONKEY</h1>
         </div>
-        <button type="button" className="link-btn" onClick={logout}>
-          <LogOut size={14} />
-          Sair ({user?.name})
-        </button>
+        <div className="card-header-acoes">
+          {onOpenAdmin && (
+            <button type="button" className="link-btn" onClick={onOpenAdmin}>
+              <ShieldCheck size={14} />
+              Painel
+            </button>
+          )}
+          <button type="button" className="link-btn" onClick={logout}>
+            <LogOut size={14} />
+            Sair ({user?.name})
+          </button>
+        </div>
       </div>
 
       <p className={`status ${checkedIn ? "status--in" : "status--out"}`}>

@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { entrar, registrar } from "./api";
-import type { Usuario } from "./types";
+import type { RegisterResponse, Usuario } from "./types";
 
 const STORAGE_KEY = "gym-monkey.auth";
 
@@ -20,7 +20,11 @@ interface AuthContextValue {
   token: string | null;
   user: Usuario | null;
   login: (email: string, password: string) => Promise<void>;
-  cadastrar: (name: string, email: string, password: string) => Promise<void>;
+  cadastrar: (
+    name: string,
+    email: string,
+    password: string,
+  ) => Promise<RegisterResponse>;
   logout: () => void;
 }
 
@@ -54,11 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const cadastrar = useCallback(
-    async (name: string, email: string, password: string) => {
-      const resposta = await registrar({ name, email, password });
-      salvarSessao({ token: resposta.accessToken, user: resposta.user });
-    },
-    [salvarSessao],
+    // Cadastro NAO loga: a conta entra pendente de aprovacao. Devolve a
+    // resposta pra tela mostrar a mensagem e voltar pro modo de login.
+    (name: string, email: string, password: string) =>
+      registrar({ name, email, password }),
+    [],
   );
 
   const logout = useCallback(() => {

@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   alternarPonto,
   ApiError,
+  atualizarUsuario,
   buscarHistorico,
   editarRegistro,
   entrar,
   excluirRegistro,
+  listarUsuarios,
   registrar,
 } from "./api";
 
@@ -114,6 +116,34 @@ describe("api", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         `${API_URL}/time-entries/abc`,
         expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+
+    it("listarUsuarios: GET /users com Bearer", async () => {
+      fetchMock.mockResolvedValue(respostaOk([]));
+
+      await listarUsuarios("sup-token");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${API_URL}/users`,
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: "Bearer sup-token" }),
+        }),
+      );
+    });
+
+    it("atualizarUsuario: PATCH /users/:id com o corpo e Bearer", async () => {
+      fetchMock.mockResolvedValue(respostaOk({ id: "u1", active: true }));
+
+      await atualizarUsuario("sup-token", "u1", { active: true });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${API_URL}/users/u1`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ active: true }),
+          headers: expect.objectContaining({ Authorization: "Bearer sup-token" }),
+        }),
       );
     });
   });

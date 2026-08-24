@@ -359,6 +359,24 @@ describe("PontoScreen", () => {
     });
   });
 
+  describe("acesso ao painel de supervisor", () => {
+    it("nao mostra o botao Painel quando onOpenAdmin nao e passado", async () => {
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: /Começar treino/ });
+      expect(screen.queryByRole("button", { name: /Painel/ })).not.toBeInTheDocument();
+    });
+
+    it("mostra o botao Painel e chama onOpenAdmin ao clicar", async () => {
+      const onOpenAdmin = vi.fn();
+      render(<PontoScreen onOpenAdmin={onOpenAdmin} />);
+
+      const botao = await screen.findByRole("button", { name: /Painel/ });
+      await userEvent.click(botao);
+
+      expect(onOpenAdmin).toHaveBeenCalled();
+    });
+  });
+
   describe("historico agrupado por dia", () => {
     function diasAtrasAs(dias: number, hora: number, minuto = 0): Date {
       const data = new Date();

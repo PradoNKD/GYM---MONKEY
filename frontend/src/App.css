@@ -79,6 +79,15 @@
   text-align: left;
 }
 
+.auth-aviso {
+  color: #15803d;
+  background: #dcfce7;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
 .auth-dica {
   color: #6b6b68;
   font-size: 0.75rem;
@@ -356,4 +365,103 @@
 
 .historico-edicao input[type="datetime-local"]:focus {
   border-color: #ff4d3d;
+}
+
+/* Header com mais de uma acao (ex.: Painel + Sair) */
+.card-header-acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* --- Painel de supervisor --- */
+.admin-linha {
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-usuario {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-nome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #191919;
+}
+
+.admin-voce {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #ff4d3d;
+  background: #ffe6e2;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.admin-email {
+  font-size: 0.78rem;
+  color: #6b6b68;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  border: 1px solid #ececec;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #191919;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-mini:hover:not(:disabled) {
+  border-color: #191919;
+}
+
+.btn-mini:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-mini--ok {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.btn-mini--perigo {
+  color: #d6301f;
+  border-color: #f3c5be;
+}
+
+.admin-vazio {
+  font-size: 0.85rem;
+  color: #6b6b68;
+  text-align: left;
 }

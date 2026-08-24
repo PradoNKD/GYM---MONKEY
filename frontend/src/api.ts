@@ -1,4 +1,4 @@
-import type { AuthResponse, Registro } from "./types";
+import type { AuthResponse, Registro, RegisterResponse, Role, UsuarioAdmin } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -37,7 +37,7 @@ export function registrar(data: {
   email: string;
   password: string;
 }) {
-  return request<AuthResponse>("/auth/register", {
+  return request<RegisterResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -73,6 +73,24 @@ export function excluirRegistro(token: string, id: string) {
   return request<void>(`/time-entries/${id}`, {
     method: "DELETE",
     token,
+  });
+}
+
+// --- Painel de supervisor ---
+
+export function listarUsuarios(token: string) {
+  return request<UsuarioAdmin[]>("/users", { token });
+}
+
+export function atualizarUsuario(
+  token: string,
+  id: string,
+  data: { active?: boolean; role?: Role },
+) {
+  return request<UsuarioAdmin>(`/users/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(data),
   });
 }
 

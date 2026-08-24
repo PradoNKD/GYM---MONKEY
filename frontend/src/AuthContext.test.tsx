@@ -17,7 +17,12 @@ const { entrar, registrar, ApiError } = await import("./api");
 
 const STORAGE_KEY = "gym-monkey.auth";
 
-const usuario = { id: "user-1", name: "Fulano", email: "fulano@example.com" };
+const usuario = {
+  id: "user-1",
+  name: "Fulano",
+  email: "fulano@example.com",
+  role: "USER" as const,
+};
 
 function Sonda() {
   const { token, user, login, cadastrar, logout } = useAuth();
@@ -25,7 +30,7 @@ function Sonda() {
 
   // O AuthScreen real envolve login/cadastrar em try/catch; a sonda faz o
   // mesmo para que uma rejeicao esperada nao vire unhandled rejection.
-  const capturando = (acao: () => Promise<void>) => async () => {
+  const capturando = (acao: () => Promise<unknown>) => async () => {
     try {
       await acao();
     } catch (error) {
@@ -144,19 +149,21 @@ describe("AuthContext", () => {
   });
 
   describe("cadastro", () => {
-    it("ja deixa o usuario logado apos criar a conta", async () => {
+    it("NAO loga apos criar a conta (fica pendente de aprovacao)", async () => {
       vi.mocked(registrar).mockResolvedValue({
-        accessToken: "token-cadastro",
-        user: usuario,
+        status: "pending_approval",
+        message: "Conta criada! Aguarde aprovacao.",
       });
       renderizar();
 
       await userEvent.click(screen.getByText("cadastrar"));
 
+      // registrar foi chamado, mas nenhuma sessao foi criada.
       await waitFor(() => {
-        expect(screen.getByTestId("token")).toHaveTextContent("token-cadastro");
+        expect(vi.mocked(registrar)).toHaveBeenCalled();
       });
-      expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+      expect(screen.getByTestId("token")).toHaveTextContent("sem-token");
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
   });
 

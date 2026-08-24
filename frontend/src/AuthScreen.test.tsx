@@ -14,7 +14,9 @@ vi.mock("./AuthContext", () => ({
 describe("AuthScreen", () => {
   beforeEach(() => {
     login.mockReset().mockResolvedValue(undefined);
-    cadastrar.mockReset().mockResolvedValue(undefined);
+    cadastrar
+      .mockReset()
+      .mockResolvedValue({ status: "pending_approval", message: "Conta criada! Aguarde aprovacao." });
   });
 
   describe("modo login (padrao)", () => {
@@ -100,6 +102,21 @@ describe("AuthScreen", () => {
         );
       });
       expect(login).not.toHaveBeenCalled();
+    });
+
+    it("apos cadastrar, mostra o aviso de aprovacao e volta pro modo login", async () => {
+      render(<AuthScreen />);
+      await userEvent.click(screen.getByText("Nao tem conta? Cadastre-se"));
+
+      await userEvent.type(screen.getByPlaceholderText("Nome"), "Fulano");
+      await userEvent.type(screen.getByPlaceholderText("E-mail"), "fulano@example.com");
+      await userEvent.type(screen.getByPlaceholderText("Senha"), "senha1234");
+      await userEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+
+      // Mensagem de pendente aparece e a tela volta pro login (botao "Entrar").
+      expect(await screen.findByText(/Aguarde aprovacao/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Nome")).not.toBeInTheDocument();
     });
 
     it("exige senha com no minimo 8 caracteres, letra e numero (espelha o backend)", async () => {
