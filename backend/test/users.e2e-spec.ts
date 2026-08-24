@@ -206,4 +206,76 @@ describe('Users / painel de supervisor (e2e)', () => {
       .send({ role: 'ADMIN' })
       .expect(400);
   });
+
+  it('cadastro nao deixa auto-promover: role/active no corpo -> 400 e nada e criado', async () => {
+    const email = emailUnico('escalada');
+
+    // O ValidationPipe (forbidNonWhitelisted) barra campos fora do RegisterDto.
+    await request(server)
+      .post('/auth/register')
+      .send({ name: 'Espertinho', email, password: senha, role: 'SUPERVISOR', active: true })
+      .expect(400);
+
+    // Como a validacao roda antes do controller, a conta nem chega a ser criada.
+    const criado = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    expect(criado).toBeNull();
+  });
+
+  it('cadastro comum sempre nasce USER e inativo (defesa em profundidade)', async () => {
+    const email = emailUnico('nasce-comum');
+    const novo = await registrar(email);
+
+    expect(novo).toMatchObject({ role: 'USER', active: false });
+  });
+
+  it('usuario comum nao pode alterar contas: PATCH /users/:id -> 403', async () => {
+    const comum = emailUnico('comum-patch');
+    await registrar(comum);
+    await definir(comum, { active: true, role: 'USER' });
+    const token = await logar(comum);
+
+    const alvo = await registrar(emailUnico('alvo-patch'));
+
+    await request(server)
+      .patch(`/users/${alvo!.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ active: true })
+      .expect(403);
+  });
+
+  it('supervisor rebaixado perde acesso ao painel na requisicao seguinte -> 403', async () => {
+    const supEmail = emailUnico('sup-demote');
+    await registrar(supEmail);
+    await definir(supEmail, { active: true, role: 'SUPERVISOR' });
+    const token = await logar(supEmail);
+
+    // enquanto e supervisor, acessa o painel
+    await request(server)
+      .get('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    // rebaixado no banco (o role NAO vem do token, vem do banco a cada request)
+    await definir(supEmail, { role: 'USER' });
+
+    // o mesmo token ja nao serve mais pro painel
+    await request(server)
+      .get('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+  });
+
+  it('supervisor nao pode rebaixar a propria conta (anti-lockout) -> 403', async () => {
+    const supEmail = emailUnico('sup-selfdemote');
+    await registrar(supEmail);
+    await definir(supEmail, { active: true, role: 'SUPERVISOR' });
+    const supToken = await logar(supEmail);
+    const eu = await prisma.user.findUnique({ where: { email: supEmail.toLowerCase() } });
+
+    await request(server)
+      .patch(`/users/${eu!.id}`)
+      .set('Authorization', `Bearer ${supToken}`)
+      .send({ role: 'USER' })
+      .expect(403);
+  });
 });
