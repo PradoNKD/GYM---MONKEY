@@ -27,4 +27,5 @@ services:
       - key: DATABASE_URL
         sync: false # connection string do Neon (com sslmode=require)
       - key: FRONTEND_URL
-        sync: false # URL do GitHub Pages, ex.: https://pradonkd.github.io/GYM---MONKEY
+        sync: false # ORIGIN do GitHub Pages, SEM o caminho do repo (o CORS casa
+        # por origin): use https://pradonkd.github.io  -- NAO .../GYM---MONKEY

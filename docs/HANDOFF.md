@@ -120,9 +120,11 @@ check e as variáveis. Não precisa configurar campo a campo.
 1. Criar conta em render.com, conectar o repositório do GitHub.
 2. New > **Blueprint** > escolher este repositório (o Render lê o `render.yaml`).
 3. Preencher os 3 segredos que ficaram como `sync:false`:
-   - `DATABASE_URL` = a connection string do Neon
+   - `DATABASE_URL` = a connection string do Neon (host **direto**, não o pooler)
    - `JWT_SECRET` = um segredo **novo**, forte, só de produção (gerar como acima)
-   - `FRONTEND_URL` = a URL do GitHub Pages (ver passo 4) — pode preencher depois
+   - `FRONTEND_URL` = o **origin** do GitHub Pages, SEM o caminho do repo —
+     `https://pradonkd.github.io` (o CORS casa por origin; `.../GYM---MONKEY`
+     quebraria). Pode preencher depois.
 4. Anotar a URL pública do serviço (ex.: `https://gym-monkey-api.onrender.com`).
 
 ### 4. Frontend no GitHub Pages
@@ -138,7 +140,8 @@ Falta só:
 
 ### 5. Fechar o ciclo
 
-1. Preencher `FRONTEND_URL` no Render com a URL do Pages e redeploy (trava o CORS).
+1. Preencher `FRONTEND_URL` no Render com o **origin** do Pages
+   (`https://pradonkd.github.io`, sem o caminho) e redeploy (trava o CORS).
 2. Smoke test real: registrar → login → check-in → check-out na URL pública.
 3. Conferir o cold start (primeiro acesso após ocioso demora ~30–60s).
 
