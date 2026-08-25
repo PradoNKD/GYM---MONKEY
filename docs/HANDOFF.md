@@ -4,7 +4,7 @@ Documento pra retomar o trabalho de qualquer máquina. Vive no repositório de
 propósito: `git clone` já te entrega tudo isto, sem depender de nenhuma outra
 ferramenta.
 
-Última atualização: 2026-08-18.
+Última atualização: 2026-08-25.
 
 ---
 
@@ -20,6 +20,15 @@ streak/resumo semanal e PWA.
 
 **Qualidade:** 186 testes automatizados (70 no backend, 116 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
+
+### O que está em aberto agora
+
+O escopo das próximas versões (v0.9 → v2.0) vive em
+[PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md): checklist da **v0.9 — Fundação**
+(entidade `WorkoutSession`, `Group`, `User.timezone`, auditoria imutável e a
+lógica de `calculos.ts` movida para o servidor), as especificações de regra de
+negócio já fechadas, e as restrições permanentes do produto (LGPD, ponto
+eletrônico, CREF). Nada da v0.9 foi iniciado.
 
 ### Deploy: o que já foi feito
 

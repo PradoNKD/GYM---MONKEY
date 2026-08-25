@@ -120,6 +120,12 @@ O build do frontend roda depois dos testes de propósito, porque ele também
 checa os tipos (`tsc -b`) — já aconteceu de os testes passarem e o build
 falhar por erro de tipo, então essa ordem faz o CI pegar os dois casos.
 
-### Backlog
+### Próximos passos
 
-- (deploy concluído; sem itens abertos no momento)
+O escopo das próximas versões (v0.9 → v2.0) está em
+[docs/PROXIMOS-PASSOS.md](docs/PROXIMOS-PASSOS.md), com o checklist da v0.9 em
+aberto, as especificações de regra de negócio já fechadas e as restrições
+permanentes do produto (LGPD, ponto eletrônico, CREF).
+
+Em aberto agora: **v0.9 — Fundação** (entidade `WorkoutSession`, `Group`,
+`User.timezone`, auditoria imutável e lógica movida para o servidor).
