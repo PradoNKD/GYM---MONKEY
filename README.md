@@ -17,16 +17,19 @@ App de registro de ponto de treino (check-in/check-out), com identidade visual e
 ## Stack
 
 - **Frontend**: React + TypeScript + Vite
-- **Backend**: NestJS + Prisma (SQLite) + JWT + bcrypt
+- **Backend**: NestJS + Prisma (PostgreSQL) + JWT + bcrypt
 
 ## Como rodar localmente
+
+Pré-requisitos: **Node 22–24** e **PostgreSQL 17**. Passo a passo completo
+(incluindo a criação dos bancos locais) em [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ```bash
 # Backend
 cd backend
 npm install
 cp .env.example .env
-npx prisma migrate dev
+npx prisma migrate deploy
 npm run start:dev   # http://localhost:3000
 
 # Frontend (em outro terminal)
@@ -37,23 +40,23 @@ npm run dev          # http://localhost:5173
 
 Mais detalhes de endpoints da API em [backend/README.md](backend/README.md).
 
-Retomando de outra máquina ou continuando o deploy? Ver [docs/HANDOFF.md](docs/HANDOFF.md) — estado atual, setup em máquina nova e o checklist dos passos que faltam.
+Retomando de outra máquina? Ver [docs/HANDOFF.md](docs/HANDOFF.md) — estado atual, setup em máquina nova e a configuração de produção.
 
 ## Testes
 
-167 testes automatizados no total: 51 no backend e 116 no frontend.
+216 testes automatizados no total: 88 no backend (41 unitários + 47 e2e) e 128 no frontend.
 
 ### Backend (Jest)
 
 ```bash
 cd backend
 npm test          # unitarios (services, mockando o Prisma)
-npm run test:e2e  # ponta a ponta, HTTP real contra um SQLite de teste isolado
+npm run test:e2e  # ponta a ponta, HTTP real contra um Postgres de teste isolado
 ```
 
 - **Unitários** (`src/**/*.spec.ts`): regras de negocio de `AuthService`, `UsersService`, `TimeEntriesService` e `JwtStrategy`.
-- **E2E** (`test/*.e2e-spec.ts`): fluxo completo via HTTP (registro, login, toggle check-in/check-out, edicao/exclusao), validacao de payload, isolamento de dados entre usuarios e rate limiting (5 tentativas/min em `/auth`).
-- `test:e2e` recria o banco `backend/prisma/test.db` do zero a cada execucao (nao usa o `dev.db`).
+- **E2E** (`test/*.e2e-spec.ts`): fluxo completo via HTTP (registro, login, toggle check-in/check-out, edicao/exclusao), validacao de payload, isolamento de dados entre usuarios, controle de acesso do supervisor e rate limiting (5 tentativas/min em `/auth`).
+- `test:e2e` recria o banco de teste do zero a cada execucao (banco proprio, nunca o de desenvolvimento). A URL vem de `TEST_DATABASE_URL`, com default local em `test/test-db-url.js`; no CI e um Postgres de servico.
 
 ### Frontend (Vitest + Testing Library)
 

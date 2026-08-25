@@ -18,7 +18,7 @@ App de check-in de academia: frontend (React+Vite) + backend (NestJS) +
 Postgres, com autenticação por usuário, histórico agrupado por dia,
 streak/resumo semanal e PWA.
 
-**Qualidade:** 186 testes automatizados (70 no backend, 116 no frontend),
+**Qualidade:** 216 testes automatizados (88 no backend, 128 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
 ### O que está em aberto agora
@@ -30,31 +30,33 @@ lógica de `calculos.ts` movida para o servidor), as especificações de regra d
 negócio já fechadas, e as restrições permanentes do produto (LGPD, ponto
 eletrônico, CREF). Nada da v0.9 foi iniciado.
 
-### Deploy: o que já foi feito
+### A stack, e o trade-off aceito
 
-- **Passo 1 — endurecimento de segurança** (commit `34de999`): fail-fast de
-  `JWT_SECRET` no boot (sem segredo forte o app não sobe), `/health`, `trust
-  proxy` pro rate limiting atrás de proxy, `prisma migrate deploy` no release,
-  `engines` fixando o Node.
-- **Passo 2 — migração pra Postgres** (commit `9545c37`): Prisma trocado de
-  SQLite pra `postgresql`, migration nativa gerada, testes rodando contra
-  Postgres (local e um container `postgres:17` no CI). CI verde.
+**GitHub Pages** (frontend) + **Render** (backend) + **Neon** (Postgres), toda
+gratuita. Railway foi descartado por ser pago.
 
-### Deploy: o que falta (passos 3–5)
+O trade-off segue valendo: no plano free o backend "dorme" após ~15 min ocioso,
+e o primeiro acesso depois disso demora ~30–60s (cold start). Foi aceito para a
+fase de validação, mas **briga diretamente com engajamento** — o app que se
+quer abrir na porta da academia é justamente o que mais sofre. Está registrado
+como pendência em [PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md), para resolver antes
+da v1.4.
 
-Stack gratuita escolhida: **GitHub Pages** (frontend) + **Render** (backend) +
-**Neon** (Postgres). Railway foi descartado por ser pago. Trade-off aceito: o
-backend no Render "dorme" após 15 min ocioso e o primeiro acesso demora
-~30–60s (cold start) — ok pra fase de validação.
+### Como o deploy foi construído
 
-**O preparo de código dos passos 3–5 já está feito** (commit `d9fac0b`):
-- `frontend/vite.config.ts`: `base` via `VITE_BASE` (subcaminho do Pages);
-  manifest do PWA derivado do base; `<img>` usando `import.meta.env.BASE_URL`.
-- `.github/workflows/deploy-pages.yml`: publica o frontend no Pages.
-- `render.yaml`: blueprint do backend no Render.
+Histórico, para quando for preciso entender uma decisão:
 
-**O que resta é só a parte de contas** (login no navegador), na ordem
-Neon → Render → Pages. Checklist detalhado no fim deste documento.
+- **Endurecimento de segurança** (`34de999`): fail-fast de `JWT_SECRET` no boot
+  (sem segredo forte o app não sobe), `/health`, `trust proxy` pro rate
+  limiting atrás de proxy, `prisma migrate deploy` no release, `engines`
+  fixando o Node.
+- **Migração pra Postgres** (`9545c37`): Prisma trocado de SQLite pra
+  `postgresql`, migration nativa gerada, testes rodando contra Postgres (local
+  e um container `postgres:17` no CI).
+- **Preparo de publicação** (`d9fac0b`): `base` via `VITE_BASE` no
+  `vite.config.ts` (subcaminho do Pages), com o manifest do PWA derivado dele;
+  `deploy-pages.yml` publicando o frontend; `render.yaml` como blueprint do
+  backend.
 
 ---
 
@@ -100,12 +102,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```bash
 # Backend (precisa do Postgres de teste rodando)
 cd backend
-npm test           # 37 unitários
-npm run test:e2e   # 33 e2e (usa o banco gym_monkey_test)
+npm test           # 41 unitários
+npm run test:e2e   # 47 e2e (usa o banco gym_monkey_test)
 
 # Frontend
 cd frontend
-npm test           # 116 testes (Vitest)
+npm test           # 128 testes (Vitest)
 ```
 
 O banco de teste vem de `TEST_DATABASE_URL` (default local em
@@ -113,50 +115,46 @@ O banco de teste vem de `TEST_DATABASE_URL` (default local em
 
 ---
 
-## Checklist dos passos 3–5 (quando for retomar o deploy)
+## Configuração de produção (referência)
 
-Estas etapas exigem contas suas (login no navegador). A ordem importa: o
-Render precisa da URL do Neon, e o frontend precisa da URL do Render.
+Está tudo montado e no ar desde 2026-08-18 — **não há nada a fazer aqui**. Esta
+seção existe para o caso de precisar recriar a infra, trocar de provedor ou
+entender por que alguma coisa está de um jeito específico. As armadilhas abaixo
+custaram tempo na primeira vez.
 
-### 3a. Neon (Postgres de produção) — grátis, sem cartão
+### Neon (Postgres)
 
-1. Criar conta em neon.com e um projeto (região mais perto do Brasil).
-2. Copiar a **connection string** (Connection Details) — algo como
-   `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`.
-3. Guardar essa URL: vai no `DATABASE_URL` do Render.
+Projeto na região mais perto do Brasil. A `DATABASE_URL` usada no Render aponta
+para o **host direto, não o pooler**.
 
-### 3b. Render (backend) — web service free, via Blueprint
+### Render (backend)
 
-O `render.yaml` na raiz já define build, start (com `migrate deploy`), health
-check e as variáveis. Não precisa configurar campo a campo.
+Criado como **Blueprint** a partir do `render.yaml` na raiz, que já define
+build, start (com `migrate deploy`), health check e variáveis — não se
+configura campo a campo. Três segredos ficam como `sync:false` e são
+preenchidos no painel:
 
-1. Criar conta em render.com, conectar o repositório do GitHub.
-2. New > **Blueprint** > escolher este repositório (o Render lê o `render.yaml`).
-3. Preencher os 3 segredos que ficaram como `sync:false`:
-   - `DATABASE_URL` = a connection string do Neon (host **direto**, não o pooler)
-   - `JWT_SECRET` = um segredo **novo**, forte, só de produção (gerar como acima)
-   - `FRONTEND_URL` = o **origin** do GitHub Pages, SEM o caminho do repo —
-     `https://pradonkd.github.io` (o CORS casa por origin; `.../GYM---MONKEY`
-     quebraria). Pode preencher depois.
-4. Anotar a URL pública do serviço (ex.: `https://gym-monkey-api.onrender.com`).
+- `DATABASE_URL` — a connection string do Neon (host direto).
+- `JWT_SECRET` — segredo próprio de produção, diferente do de desenvolvimento.
+- `FRONTEND_URL` — o **origin** do Pages, `https://pradonkd.github.io`, **sem o
+  caminho do repositório**. O CORS casa por origin, então `.../GYM---MONKEY`
+  quebra.
 
-### 4. Frontend no GitHub Pages
+URL pública: `https://gym-monkey-api.onrender.com`.
 
-Código já pronto: `deploy-pages.yml` faz o build (com o subcaminho) e publica.
-Falta só:
-1. Em Settings > Secrets and variables > Actions > **Variables**, criar
-   `VITE_API_URL` = a URL do Render (passo 3b). Sem ela, o workflow falha de
-   propósito (não publica um front apontando pra localhost).
-2. Em Settings > **Pages**, definir Source = **GitHub Actions**.
-3. Disparar o `deploy-pages` (push em `frontend/**` ou "Run workflow" na aba
-   Actions). URL final: `https://pradonkd.github.io/GYM---MONKEY/`.
+### GitHub Pages (frontend)
 
-### 5. Fechar o ciclo
+- Settings > Secrets and variables > Actions > **Variables**: `VITE_API_URL`
+  com a URL do Render. Sem ela o workflow falha de propósito, para não publicar
+  um front apontando pra localhost.
+- Settings > **Pages**: Source = **GitHub Actions**.
+- O `deploy-pages` dispara em push que toque `frontend/**`, ou manualmente em
+  Actions > Run workflow.
 
-1. Preencher `FRONTEND_URL` no Render com o **origin** do Pages
-   (`https://pradonkd.github.io`, sem o caminho) e redeploy (trava o CORS).
-2. Smoke test real: registrar → login → check-in → check-out na URL pública.
-3. Conferir o cold start (primeiro acesso após ocioso demora ~30–60s).
+### Se mexer no CORS ou na URL da API
+
+Trocar `FRONTEND_URL` no Render exige redeploy. Smoke test na URL pública
+depois: registrar → login → check-in → check-out.
 
 ---
 

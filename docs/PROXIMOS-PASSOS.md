@@ -74,7 +74,7 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       semanal já calculados no servidor.
 - [ ] **Mover a lógica de `calculos.ts` para o backend**; reescrever os testes
       de `calculos.ts` como testes de service.
-- [ ] Manter a suíte verde (186 testes hoje) e aplicar a migration em
+- [ ] Manter a suíte verde (216 testes hoje) e aplicar a migration em
       dev / test / CI / Neon.
 
 ### Regras de integridade da sessão

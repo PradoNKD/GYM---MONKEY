@@ -1,6 +1,6 @@
 # GYM-MONKEY API
 
-Backend do app de Registro de Ponto: autenticacao por usuario (JWT) e persistencia de check-in/check-out em banco de dados (SQLite via Prisma).
+Backend do app de Registro de Ponto: autenticacao por usuario (JWT) e persistencia de check-in/check-out em banco de dados (PostgreSQL via Prisma).
 
 ## Como rodar
 
