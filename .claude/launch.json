@@ -8,6 +8,13 @@
       "port": 5173
     },
     {
+      "name": "frontend-mobile",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && npm run dev:mobile --prefix frontend -- --port 5174"],
+      "port": 5174,
+      "url": "https://localhost:5174"
+    },
+    {
       "name": "backend",
       "runtimeExecutable": "cmd.exe",
       "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && npm run start:dev --prefix backend"],

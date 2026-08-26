@@ -31,7 +31,10 @@ export default defineConfig(({ mode }) => {
           short_name: 'GYM MONKEY',
           description: 'Registro de check-in e check-out de treino',
           theme_color: '#ff4d3d',
-          background_color: '#f4f4f2',
+          // O Android monta a splash com background_color + icone + name (o
+          // theme_color so pinta a barra de status). Antes era #f4f4f2, um
+          // branco-gelo, e a splash saia toda branca.
+          background_color: '#191919',
           display: 'standalone',
           scope: base,
           start_url: base,
@@ -40,11 +43,28 @@ export default defineConfig(({ mode }) => {
               src: `${base}icon-192.png`,
               sizes: '192x192',
               type: 'image/png',
+              purpose: 'any',
             },
             {
               src: `${base}icon-512.png`,
               sizes: '512x512',
               type: 'image/png',
+              purpose: 'any',
+            },
+            // Sem um icone maskable o Android encaixa o nosso dentro de uma
+            // placa branca. Estes tem a arte reduzida na zona segura, sobre o
+            // escuro da marca (gerados por scripts/gerar-icone-maskable.mjs).
+            {
+              src: `${base}icon-maskable-192.png`,
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+            {
+              src: `${base}icon-maskable-512.png`,
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
             },
           ],
         },

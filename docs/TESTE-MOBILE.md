@@ -63,3 +63,40 @@ espere e recarregue.
   iPhone/Safari fora do modo instalado, ensina o caminho do Compartilhar; em
   outro navegador do iOS, manda abrir no Safari; no Android/desktop com suporte
   nativo, mostra o botão **Instalar**.
+
+## Android: splash e ícone
+
+No Android o Chrome monta a splash **apenas** com três campos do manifest:
+`background_color` + o ícone de 512 + `name`. O `theme_color` **não** entra na
+splash — ele só pinta a barra de status. Confundir os dois é o erro comum.
+
+Duas correções já aplicadas (a splash antes saía toda branca):
+
+1. **`background_color` = `#191919`** (era `#f4f4f2`, um branco-gelo — era essa
+   a "splash branca").
+2. **Ícones `purpose: "maskable"`**. Sem eles o Android encaixa o ícone dentro
+   de uma placa branca. A arte original tinha ainda uma faixa clara de ~37px
+   **só no topo**, que aparecia como uma tarja branca; o gerador recorta essa
+   faixa, reduz a arte para a zona segura (80% do lado, porque o launcher
+   recorta as bordas) e compõe sobre o `#191919`.
+
+Para regerar os ícones maskable depois de trocar a arte:
+
+```bash
+cd frontend
+npm run gerar-icones
+```
+
+O script é `scripts/gerar-icone-maskable.mjs` (usa `sharp`, devDependency). Ele
+lê `public/icon-512.png` e escreve `public/icon-maskable-{192,512}.png`.
+
+> Nota de design: a splash agora é escura e o app é claro (`#f4f4f2`), então há
+> um "pulo" de claro/escuro na abertura. Se incomodar, as saídas são deixar a
+> splash clara de novo ou escurecer a primeira tela do app.
+
+**Como validar de verdade**: splash e ícone só aparecem com o app **instalado**,
+e nenhum navegador de desktop reproduz isso — nem o navegador embutido, que não
+instala PWA. Confirme no Android real: Chrome → menu → *Instalar app* /
+*Adicionar à tela inicial*, e feche e abra pelo ícone. Depois de trocar o
+manifest, **desinstale e reinstale**: o Android guarda a splash e o ícone de
+quando o app foi instalado.
