@@ -100,9 +100,12 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       semanal já existem no `SessionsService`, com testes próprios. O
       `calculos.ts` do frontend continua no ar até o cutover da tela — por ora
       as duas implementações coexistem de propósito.
-- [~] Manter a suíte verde e aplicar as migrations em dev / test / CI / Neon.
+- [x] Manter a suíte verde e aplicar as migrations em dev / test / CI / Neon.
       Hoje: **180 no backend** (66 unitários + 114 e2e) e 134 no frontend, todos
-      verdes. Migrations aplicadas em **dev e test**; **Neon ainda não**.
+      verdes. Migrations aplicadas em dev, test, CI e **Neon** (2026-08-26), e o
+      backfill rodado em produção: 11 sessões criadas a partir de 19 `TimeEntry`,
+      todas vinculadas ao grupo, nenhuma `OPEN`. Rodar de novo é seguro
+      (idempotência confirmada no próprio Neon).
 
 ### O que falta para ligar na tela (cutover)
 
@@ -115,9 +118,21 @@ Para migrar a tela é preciso decidir duas coisas de produto:
 1. **O botão "excluir registro" some.** Histórico apagável pelo próprio usuário
    é o que inviabiliza qualquer placar, então a API de sessões **não tem
    `DELETE`**. Corrigir passa a ser o caminho — com motivo, e com rastro.
-2. **Números podem cair no dia da virada.** O backfill aplica as regras novas ao
-   histórico antigo: quem tinha streak inflada por registros de segundos vai ver
-   um número menor. É o número honesto, mas é bom avisar antes.
+2. **Sessão `AUTO_CLOSED` não pode mostrar a duração crua.** Ela grava 360 min
+   (o teto de 6h), então quem esqueceu de finalizar veria "6h" no histórico — e
+   em produção isso já existe: Vanessa e Sidnei têm exatamente esse caso. A tela
+   precisa mostrar algo como "não finalizado", nunca o número.
+3. **Os números da semana caem para quem inflou.** Medido em produção antes de
+   rodar o backfill (simulação) e confirmado depois, com resultado idêntico:
+
+   | Pessoa | Treinos/semana antes | Depois | Por quê |
+   |---|---|---|---|
+   | Gabrielly | 4 | **0** | 10 registros viraram 5 sessões de 0 min |
+   | Flavio | 1 | **0** | sessão abaixo de 20 min |
+   | Nicolas | 1 | 1 (95 min intactos) | treino real, não muda |
+
+   **Ninguém perdeu streak** — todas já estavam em 0. O que cai são contagens
+   que nunca corresponderam a treino de verdade.
 
 Fora do escopo da v0.9, anotado: o teto de **uma correção manual por mês**
 (previsto na tabela para sessões auto-encerradas) ainda não é aplicado — hoje
