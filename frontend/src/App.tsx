@@ -3,6 +3,7 @@ import "./App.css";
 import { AdminScreen } from "./AdminScreen";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { AuthScreen } from "./AuthScreen";
+import { InstallPrompt } from "./InstallPrompt";
 import { PontoScreen } from "./PontoScreen";
 
 function AppContent() {
@@ -26,6 +27,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <InstallPrompt />
     </AuthProvider>
   );
 }

@@ -465,3 +465,65 @@
   color: #6b6b68;
   text-align: left;
 }
+
+/* --- Dica de instalacao do PWA --- */
+.install-hint {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Respeita a area segura do iPhone (notch/barra inferior). */
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: calc(100% - 32px);
+  max-width: 380px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #191919;
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(20, 15, 10, 0.28);
+  z-index: 20;
+}
+
+.install-hint-texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.install-hint-texto strong {
+  font-size: 0.9rem;
+}
+
+.install-hint-texto span {
+  color: #d4d4d2;
+}
+
+.install-hint-texto b {
+  color: #ffffff;
+}
+
+.install-hint svg {
+  vertical-align: -2px;
+}
+
+.install-hint-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.install-hint .icon-btn {
+  color: #d4d4d2;
+}
+
+.install-hint .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
