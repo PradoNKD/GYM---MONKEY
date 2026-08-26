@@ -77,17 +77,28 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       script testável, não na migration** (o pareamento e o `dayKey` no fuso
       certo pedem teste); logo, precisa ser rodado à mão em produção, como o
       `set-role`.
-- [ ] **`SessionsService`** com as regras de integridade (tabela abaixo).
-- [ ] **Timestamps gerados exclusivamente no servidor**, nunca aceitos do
-      cliente. Persistir em UTC; agregar no fuso do usuário.
-- [ ] **Auditoria imutável**: editar não muta o registro — cria uma correção
-      vinculada, com autor e motivo.
+- [x] **`SessionsService`** com as regras de integridade (tabela abaixo):
+      duração mínima, truncamento no máximo, auto-encerramento, cooldown e
+      "1 contável por dia". Streak e resumo semanal calculados no servidor, no
+      fuso do usuário (`Intl`, sem biblioteca nova). Ainda **sem controller** —
+      os endpoints vêm no passo seguinte.
+- [~] **Timestamps gerados exclusivamente no servidor**, nunca aceitos do
+      cliente. Feito no `SessionsService` (persiste em UTC, agrega no fuso do
+      usuário). Falta o cutover: `PATCH /time-entries/:id` ainda aceita
+      `timestamp` do cliente e só sai de cena quando a tela migrar.
+- [~] **Auditoria imutável**: a tabela `SessionCorrection` existe e está
+      testada (autor, motivo, antes/depois, anonimização na exclusão de conta).
+      Falta o **fluxo** de correção no serviço — hoje nada escreve nela.
 - [ ] **`GET /sessions` paginado** (cursor), devolvendo streak, meta e resumo
       semanal já calculados no servidor.
-- [ ] **Mover a lógica de `calculos.ts` para o backend**; reescrever os testes
-      de `calculos.ts` como testes de service.
-- [ ] Manter a suíte verde (216 testes hoje) e aplicar a migration em
-      dev / test / CI / Neon.
+- [~] **Mover a lógica de `calculos.ts` para o backend**: streak e resumo
+      semanal já existem no `SessionsService`, com testes próprios. O
+      `calculos.ts` do frontend continua no ar até o cutover da tela — por ora
+      as duas implementações coexistem de propósito.
+- [~] Manter a suíte verde e aplicar a migration em dev / test / CI / Neon.
+      Hoje: **145 no backend** (66 unitários + 79 e2e) e 134 no frontend, todos
+      verdes. Migration aplicada em **dev e test**; **Neon ainda não** — sobe
+      junto com o resto da v0.9.
 
 ### Regras de integridade da sessão
 
