@@ -4,7 +4,7 @@ Atividades **em aberto**. Este documento existe pelo mesmo motivo do
 [HANDOFF](HANDOFF.md): vive no repositório para que um `git clone` entregue o
 contexto inteiro, sem depender de histórico de chat.
 
-Última atualização: 2026-08-25.
+Última atualização: 2026-08-26.
 
 Origem: análise de mercado de apps de academia (apps globais, mercado
 brasileiro e evidência de gamificação) cruzada com auditoria do código.
@@ -171,12 +171,106 @@ maioria.
 
 ---
 
+## Pedidos novos (2026-08-26)
+
+Anotados a pedido do dono do produto, **sem implementar agora**. Cada um já tem
+um lugar natural no roadmap; onde há conflito com algo já decidido, o conflito
+está explícito.
+
+### 1. Modo claro e escuro na tela de marcar treino
+
+Hoje o app é claro e fixo (`#f4f4f2`), com o escuro `#191919` só em textos, no
+botão de finalizar e na splash do Android. O pedido é ter os dois temas na tela
+de ponto.
+
+Já previsto na **v1.1** ("design system + dark mode"). O pedido só o torna
+prioritário dentro dela. Pontos de atenção quando chegar a vez:
+
+- Vale respeitar `prefers-color-scheme` **e** deixar o usuário forçar um tema —
+  quem treina de madrugada quer escuro independente do sistema.
+- O `theme_color` do manifest (hoje vermelho) pinta a barra de status e
+  precisaria acompanhar o tema.
+- A splash é escura e o app é claro; com o tema escuro a abertura fica coesa,
+  o que resolve de graça o "pulo" anotado em [TESTE-MOBILE](TESTE-MOBILE.md).
+- Fazer via tokens CSS (custom properties) já é meio caminho do design system.
+
+### 2. Segunda tela: a pessoa monta o treino dela
+
+Referências visuais trazidas pelo dono do produto (3 telas de apps de treino):
+
+| Referência | O que ela mostra | O que aproveitar |
+|---|---|---|
+| Tela escura, acento verde-neon | Título "Chest, January 20"; barra de progresso "1/4 weekly workouts done"; cards de exercício com miniatura, nome e etiqueta (COMPOUND / ISOLATION); CTA grande "START WORKOUT"; **barra de abas embaixo** com 4 ícones | O layout mais próximo do que queremos: abas (v1.1), progresso semanal (v1.0) e lista de exercícios (v2.0 Fase B) |
+| Amarelo e preto, com mascote | Tela de abertura: mascote grande, chamada e botão Start | Nosso macaco tem a mesma energia; serve pra onboarding e pra splash |
+| Clara/lilás, "Select a challenge" | Busca, abas *My Workouts / All Workouts / Challenges*, cards de desafio com selo de dificuldade e "Daily challenge" | Desafios e níveis de dificuldade (v1.3) |
+
+Encaixe no roadmap: a tela em si é a **v2.0 Fase B** (catálogo de exercícios,
+séries, cargas), e a navegação por abas que ela pressupõe é a **v1.1**. A
+decisão já tomada de fazer o registro **em duas fases** continua valendo: a
+Fase A (tipo de treino + nota + esforço 1–5 no check-out) vem primeiro e só
+passamos pra Fase B se houver adesão real.
+
+Duas ressalvas que não são estilo:
+
+- **CREF**: o usuário montar o **próprio** treino é livre — é exatamente o
+  pedido, então está ok. O que não pode é o supervisor **prescrever** ficha pra
+  outra pessoa (ver Restrições permanentes).
+- **"Daily challenge" briga com o modelo escolhido.** Desafio diário empurra
+  streak diária, e a v1.0 move o contador principal justamente pra semana, com
+  dia de folga e congelamento. Se entrar, tem que ser como desafio **semanal**
+  ou como algo cosmético que não alimente streak/pontos — senão volta a punir
+  descanso, que é o que estamos evitando.
+
+### 3. Vários check-ins no mesmo dia inflam o contador semanal
+
+Relato do dono do produto: dá pra abrir e fechar treinos de 1 segundo e ganhar
+streak várias vezes no mesmo dia.
+
+**Medido nas funções reais** (5 sessões de 1 segundo no mesmo dia):
+
+| Métrica | Resultado | Leitura |
+|---|---|---|
+| `calcularStreak` | **1** | A streak **não** multiplica no mesmo dia: ela conta *dias distintos* com registro (`Set` de chaves de dia) |
+| `calcularResumoSemanal().treinos` | **5** | O contador semanal **infla 1:1** com as sessões, sem limite por dia |
+| `calcularResumoSemanal().minutos` | **0** | Fica o par absurdo "5 treinos essa semana / 0min" |
+
+Então o furo relatado existe, mas mira o **contador semanal**, não a streak. O
+que a streak tem de frágil é outra coisa: **1 segundo de treino vale um dia
+inteiro** de streak (não há duração mínima), então ela é forjável com um toque
+por dia — e não perdoa nenhum dia de folga.
+
+Isso é mais grave do que parece porque a v1.0 promove justamente o número
+semanal a **contador principal da home**. O furo está exatamente na métrica que
+está prestes a virar a mais visível do app.
+
+Agrava tudo o fato de esses números serem calculados no **cliente**
+(`calculos.ts`), sobre o histórico cru, que o próprio usuário pode editar e
+apagar.
+
+**Este item já está especificado na v0.9** e é justamente o motivo de ela vir
+antes de UI e gamificação. As regras da tabela "Regras de integridade da sessão"
+resolvem o caso relatado, combinadas:
+
+| Regra | Valor | Como mata o caso |
+|---|---|---|
+| `DURACAO_MIN` | 20 min | Sessão de 1 segundo entra como "sessão curta" e **não** conta pra meta, streak nem placar |
+| Cooldown | 30 min | Novo check-in só é aceito 30 min depois do último check-out, o que corta a repetição em rajada |
+| Treinos contáveis por dia | 1 | Várias sessões válidas no mesmo dia contam **uma** (a mais longa) — é esta que fecha o furo do contador semanal |
+
+Faltam ainda, no mesmo pacote: **timestamps gerados só no servidor**, **streak
+calculada no servidor** e **auditoria imutável** (editar cria correção
+vinculada, não muta o registro) — sem isso as regras acima seriam contornáveis
+pelo cliente.
+
+Nada a decidir aqui, então: é executar a v0.9. O relato só confirma a ordem já
+escolhida.
+
 ## Roadmap resumido (v1.0 → v2.x)
 
 | Versão | Foco | Itens principais |
 |---|---|---|
 | **v1.0** | Hábito honesto | Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, ~15 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º |
-| **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + dark mode, onboarding de instalação PWA, comprovante compartilhável |
+| **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + **dark mode (pedido explícito)**, onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
 | **v1.4** | Notificações | Recap semanal **por e-mail primeiro** (100% da base), Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |
