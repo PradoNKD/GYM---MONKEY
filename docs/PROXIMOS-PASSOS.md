@@ -72,33 +72,56 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       motivo e o antes/depois. `authorId` é nulável com `ON DELETE SET NULL`:
       excluir a conta apaga de verdade (LGPD) sem destruir o rastro nem ser
       bloqueado por ele.
-- [ ] **Backfill**: converter os `TimeEntry` existentes em sessões pareadas,
-      preservando o histórico atual como registro de auditoria. **Fica em
-      script testável, não na migration** (o pareamento e o `dayKey` no fuso
-      certo pedem teste); logo, precisa ser rodado à mão em produção, como o
-      `set-role`.
+- [x] **Backfill**: `npm run backfill-sessoes` converte os `TimeEntry` em
+      sessões pareadas, preservando o histórico como auditoria. A lógica vive em
+      `src/sessions/backfill.ts` (testada, 12 casos); o script é só a casca.
+      Idempotente por usuário, e aceita `userIds` para reprocessar uma pessoa
+      só. **Precisa ser rodado à mão em produção**, como o `set-role`.
 - [x] **`SessionsService`** com as regras de integridade (tabela abaixo):
       duração mínima, truncamento no máximo, auto-encerramento, cooldown e
       "1 contável por dia". Streak e resumo semanal calculados no servidor, no
       fuso do usuário (`Intl`, sem biblioteca nova). Ainda **sem controller** —
       os endpoints vêm no passo seguinte.
-- [~] **Timestamps gerados exclusivamente no servidor**, nunca aceitos do
-      cliente. Feito no `SessionsService` (persiste em UTC, agrega no fuso do
-      usuário). Falta o cutover: `PATCH /time-entries/:id` ainda aceita
-      `timestamp` do cliente e só sai de cena quando a tela migrar.
-- [~] **Auditoria imutável**: a tabela `SessionCorrection` existe e está
-      testada (autor, motivo, antes/depois, anonimização na exclusão de conta).
-      Falta o **fluxo** de correção no serviço — hoje nada escreve nela.
-- [ ] **`GET /sessions` paginado** (cursor), devolvendo streak, meta e resumo
-      semanal já calculados no servidor.
+- [x] **Timestamps gerados exclusivamente no servidor**, nunca aceitos do
+      cliente (persiste em UTC, agrega no fuso do usuário). A única porta que
+      aceita horário do cliente é a correção — e justamente por isso ela é
+      auditada e revalidada. O `PATCH /time-entries/:id` antigo continua no ar
+      até o cutover da tela.
+- [x] **Auditoria imutável**: `PATCH /sessions/:id` exige motivo e grava o
+      antes/depois com o autor **na mesma transação** da alteração — não existe
+      mudança sem rastro. A correção passa pelas mesmas regras de duração, então
+      não é atalho para burlar o mínimo. `GET /sessions/:id/corrections` expõe a
+      trilha. Dono corrige o próprio treino; supervisor corrige de qualquer um.
+- [x] **`GET /sessions` paginado** (cursor), devolvendo streak e resumo semanal
+      já calculados no servidor, e um campo `contavel` por sessão para a tela
+      não reimplementar a regra. Cursor em vez de offset porque a lista cresce
+      pelo topo. `POST /sessions/toggle` não aceita horário do cliente.
 - [~] **Mover a lógica de `calculos.ts` para o backend**: streak e resumo
       semanal já existem no `SessionsService`, com testes próprios. O
       `calculos.ts` do frontend continua no ar até o cutover da tela — por ora
       as duas implementações coexistem de propósito.
-- [~] Manter a suíte verde e aplicar a migration em dev / test / CI / Neon.
-      Hoje: **145 no backend** (66 unitários + 79 e2e) e 134 no frontend, todos
-      verdes. Migration aplicada em **dev e test**; **Neon ainda não** — sobe
-      junto com o resto da v0.9.
+- [~] Manter a suíte verde e aplicar as migrations em dev / test / CI / Neon.
+      Hoje: **180 no backend** (66 unitários + 114 e2e) e 134 no frontend, todos
+      verdes. Migrations aplicadas em **dev e test**; **Neon ainda não**.
+
+### O que falta para ligar na tela (cutover)
+
+A fundação está pronta e os endpoints existem, mas o frontend **ainda usa
+`/time-entries`**. Enquanto o cutover não acontece, as duas implementações
+coexistem de propósito — a antiga serve a tela, a nova é a que vale.
+
+Para migrar a tela é preciso decidir duas coisas de produto:
+
+1. **O botão "excluir registro" some.** Histórico apagável pelo próprio usuário
+   é o que inviabiliza qualquer placar, então a API de sessões **não tem
+   `DELETE`**. Corrigir passa a ser o caminho — com motivo, e com rastro.
+2. **Números podem cair no dia da virada.** O backfill aplica as regras novas ao
+   histórico antigo: quem tinha streak inflada por registros de segundos vai ver
+   um número menor. É o número honesto, mas é bom avisar antes.
+
+Fora do escopo da v0.9, anotado: o teto de **uma correção manual por mês**
+(previsto na tabela para sessões auto-encerradas) ainda não é aplicado — hoje
+não há limite de correções.
 
 ### Regras de integridade da sessão
 

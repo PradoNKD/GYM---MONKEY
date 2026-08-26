@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { SessionSource, SessionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -6,6 +11,7 @@ import {
   classificar,
   cooldownRestante,
   DURACAO_MIN_MIN,
+  ehContabil,
 } from './regras';
 import { chaveDoDia, minutosEntre, semanaDe, somarDias } from './tempo';
 
@@ -213,5 +219,163 @@ export class SessionsService {
       semana,
       regras: { duracaoMinimaMin: DURACAO_MIN_MIN },
     };
+  }
+
+  private paraResposta(sessao: {
+    id: string;
+    startedAt: Date;
+    endedAt: Date | null;
+    durationMin: number | null;
+    status: SessionStatus;
+    source: SessionSource;
+    dayKey: string;
+  }) {
+    return {
+      id: sessao.id,
+      startedAt: sessao.startedAt,
+      endedAt: sessao.endedAt,
+      durationMin: sessao.durationMin,
+      status: sessao.status,
+      source: sessao.source,
+      dayKey: sessao.dayKey,
+      // Deixa explicito na resposta se a sessao entra nas contas, pra a tela
+      // nao ter de reimplementar a regra.
+      contavel: ehContabil(sessao.status),
+    };
+  }
+
+  /**
+   * Historico paginado por cursor. Cursor em vez de offset porque a lista
+   * cresce pelo topo: com `skip` numerico, abrir um treino durante a rolagem
+   * empurraria os itens e repetiria registros.
+   */
+  async listar(userId: string, opcoes: { cursor?: string; limite?: number } = {}) {
+    const limite = Math.min(Math.max(opcoes.limite ?? 20, 1), 50);
+
+    const encontradas = await this.prisma.workoutSession.findMany({
+      where: { userId },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      take: limite + 1, // 1 extra so pra saber se existe proxima pagina
+      ...(opcoes.cursor ? { cursor: { id: opcoes.cursor }, skip: 1 } : {}),
+    });
+
+    const temMais = encontradas.length > limite;
+    const itens = temMais ? encontradas.slice(0, limite) : encontradas;
+
+    return {
+      itens: itens.map((s) => this.paraResposta(s)),
+      proximoCursor: temMais ? itens[itens.length - 1].id : null,
+    };
+  }
+
+  /** Historico + numeros da home numa so ida ao servidor. */
+  async historicoComResumo(userId: string, opcoes: { cursor?: string; limite?: number } = {}) {
+    await this.fecharAbandonadas(userId);
+
+    const [pagina, resumo] = await Promise.all([
+      this.listar(userId, opcoes),
+      this.resumo(userId),
+    ]);
+
+    return { ...pagina, resumo };
+  }
+
+  /**
+   * Correcao auditada. Editar NAO sobrescreve em silencio: grava em
+   * SessionCorrection o antes, o depois, quem fez e por que -- tudo na mesma
+   * transacao, pra nunca existir mudanca sem rastro.
+   *
+   * E a unica porta por onde um horario vindo do cliente e aceito, e justamente
+   * por isso ela e auditada.
+   */
+  async corrigir(
+    autorId: string,
+    sessionId: string,
+    dados: { startedAt?: string; endedAt?: string; reason: string },
+    ehSupervisor = false,
+  ) {
+    const sessao = await this.prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: { user: { select: { timezone: true } } },
+    });
+    if (!sessao) throw new NotFoundException('Sessao nao encontrada');
+
+    if (sessao.userId !== autorId && !ehSupervisor) {
+      throw new ForbiddenException('Voce so pode corrigir os seus treinos');
+    }
+
+    if (sessao.status === SessionStatus.OPEN) {
+      throw new BadRequestException(
+        'Finalize o treino antes de corrigir os horarios',
+      );
+    }
+
+    const inicioNovo = dados.startedAt ? new Date(dados.startedAt) : sessao.startedAt;
+    const fimNovo = dados.endedAt ? new Date(dados.endedAt) : sessao.endedAt;
+
+    if (Number.isNaN(inicioNovo.getTime()) || (fimNovo && Number.isNaN(fimNovo.getTime()))) {
+      throw new BadRequestException('Data invalida');
+    }
+    if (!fimNovo) {
+      throw new BadRequestException('A sessao precisa ter um fim');
+    }
+    if (fimNovo.getTime() <= inicioNovo.getTime()) {
+      throw new BadRequestException('O fim tem de ser depois do inicio');
+    }
+    if (fimNovo.getTime() > this.agora().getTime()) {
+      throw new BadRequestException('Nao da pra registrar treino no futuro');
+    }
+
+    // A correcao passa pelas MESMAS regras de duracao: senao seria o caminho
+    // facil pra burlar a duracao minima e o teto.
+    const { status, durationMin } = classificar(minutosEntre(inicioNovo, fimNovo));
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.sessionCorrection.create({
+        data: {
+          sessionId: sessao.id,
+          authorId: autorId,
+          reason: dados.reason,
+          startedAtBefore: sessao.startedAt,
+          startedAtAfter: inicioNovo,
+          endedAtBefore: sessao.endedAt,
+          endedAtAfter: fimNovo,
+          statusBefore: sessao.status,
+          statusAfter: status,
+        },
+      });
+
+      const atualizada = await tx.workoutSession.update({
+        where: { id: sessao.id },
+        data: {
+          startedAt: inicioNovo,
+          endedAt: fimNovo,
+          durationMin,
+          status,
+          source: SessionSource.CORRECTION,
+          dayKey: chaveDoDia(inicioNovo, sessao.user.timezone),
+        },
+      });
+
+      return this.paraResposta(atualizada);
+    });
+  }
+
+  /** Trilha de auditoria de uma sessao, do mais recente pro mais antigo. */
+  async correcoes(autorId: string, sessionId: string, ehSupervisor = false) {
+    const sessao = await this.prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true },
+    });
+    if (!sessao) throw new NotFoundException('Sessao nao encontrada');
+
+    if (sessao.userId !== autorId && !ehSupervisor) {
+      throw new ForbiddenException('Voce so pode ver os seus treinos');
+    }
+
+    return this.prisma.sessionCorrection.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

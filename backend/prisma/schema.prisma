@@ -46,7 +46,10 @@ model TimeEntry {
   type      TimeEntryType
   timestamp DateTime      @default(now())
   userId    String
-  user      User          @relation(fields: [userId], references: [id])
+  // Cascade: excluir a conta tem de apagar de verdade o historico da pessoa
+  // (LGPD). Sem isso o Prisma usa Restrict e a exclusao falha para qualquer
+  // usuario que ja tenha batido ponto -- ou seja, todos.
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

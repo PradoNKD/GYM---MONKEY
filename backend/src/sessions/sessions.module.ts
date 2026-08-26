@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
 
-// Ainda sem controller: a v0.9 monta a fundacao. Os endpoints (GET /sessions
-// paginado e o toggle) entram no passo seguinte, junto com a troca na tela.
+// A tela ainda usa /time-entries; estes endpoints sobem em paralelo e a troca
+// acontece no cutover do frontend.
 @Module({
   imports: [PrismaModule],
+  controllers: [SessionsController],
   providers: [SessionsService],
   exports: [SessionsService],
 })

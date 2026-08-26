@@ -139,6 +139,23 @@ describe('Schema de sessoes e grupos (e2e)', () => {
     expect(depois!.authorId).toBeNull();
   });
 
+  it('excluir a conta apaga o historico antigo junto (LGPD)', async () => {
+    const u = await prisma.user.create({
+      data: { name: 'Sai', email: emailUnico(), passwordHash: 'x', active: true },
+    });
+    await prisma.timeEntry.create({ data: { userId: u.id, type: 'CHECK_IN' } });
+    await prisma.workoutSession.create({
+      data: { userId: u.id, startedAt: new Date(), dayKey: '2026-08-26', status: 'COMPLETED' },
+    });
+
+    // Sem o Cascade no TimeEntry, isto falhava com erro de chave estrangeira --
+    // ou seja, nenhum usuario que ja bateu ponto poderia ser excluido.
+    await prisma.user.delete({ where: { id: u.id } });
+
+    expect(await prisma.timeEntry.count({ where: { userId: u.id } })).toBe(0);
+    expect(await prisma.workoutSession.count({ where: { userId: u.id } })).toBe(0);
+  });
+
   it('apagar a sessao leva as correcoes junto (nao deixa orfao)', async () => {
     const u = await criarUsuario();
     const sessao = await prisma.workoutSession.create({
