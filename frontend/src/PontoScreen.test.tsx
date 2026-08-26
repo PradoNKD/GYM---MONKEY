@@ -3,14 +3,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PontoScreen } from "./PontoScreen";
 import { ApiError } from "./api";
-import type { Registro, TipoRegistro } from "./types";
+import type { PaginaSessoes, Sessao, StatusSessao } from "./types";
 
 const logout = vi.fn();
 
 vi.mock("./AuthContext", () => ({
   useAuth: () => ({
-    token: "token-de-teste",
-    user: { id: "user-1", name: "Fulano", email: "fulano@example.com" },
+    token: "tok",
+    user: { id: "u1", name: "Fulano", email: "f@x.com", role: "USER" },
     logout,
     login: vi.fn(),
     cadastrar: vi.fn(),
@@ -21,70 +21,76 @@ vi.mock("./api", async () => {
   const real = await vi.importActual<typeof import("./api")>("./api");
   return {
     ...real,
-    buscarHistorico: vi.fn(),
-    alternarPonto: vi.fn(),
-    editarRegistro: vi.fn(),
-    excluirRegistro: vi.fn(),
+    buscarSessoes: vi.fn(),
+    alternarTreino: vi.fn(),
+    corrigirSessao: vi.fn(),
   };
 });
 
-const { buscarHistorico, alternarPonto, editarRegistro, excluirRegistro } =
-  await import("./api");
+const { buscarSessoes, alternarTreino, corrigirSessao } = await import("./api");
 
-function registro(id: string, type: TipoRegistro, data: Date): Registro {
-  return { id, type, timestamp: data.toISOString(), userId: "user-1" };
+function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
+  const status: StatusSessao = over.status ?? "COMPLETED";
+  return {
+    id: over.id ?? `s-${Math.random().toString(36).slice(2)}`,
+    startedAt: over.startedAt ?? `${over.dayKey}T13:00:00.000Z`,
+    endedAt: over.endedAt !== undefined ? over.endedAt : `${over.dayKey}T14:00:00.000Z`,
+    durationMin: over.durationMin !== undefined ? over.durationMin : 60,
+    status,
+    source: "APP",
+    dayKey: over.dayKey,
+    contavel: over.contavel ?? status === "COMPLETED",
+  };
 }
 
-function hojeAs(hora: number, minuto = 0): Date {
-  const data = new Date();
-  data.setHours(hora, minuto, 0, 0);
-  return data;
+function pagina(over: Partial<PaginaSessoes> = {}): PaginaSessoes {
+  return {
+    itens: over.itens ?? [],
+    proximoCursor: over.proximoCursor ?? null,
+    resumo: {
+      emAndamento: null,
+      streak: 0,
+      semana: { treinos: 0, minutos: 0 },
+      regras: { duracaoMinimaMin: 20 },
+      ...over.resumo,
+    },
+  };
 }
 
-describe("PontoScreen", () => {
+const hoje = new Date();
+const pad = (n: number) => String(n).padStart(2, "0");
+const CHAVE_HOJE = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
+
+describe("PontoScreen (sessoes)", () => {
   beforeEach(() => {
-    vi.mocked(buscarHistorico).mockReset().mockResolvedValue([]);
-    vi.mocked(alternarPonto).mockReset();
-    vi.mocked(editarRegistro).mockReset();
-    vi.mocked(excluirRegistro).mockReset();
+    vi.mocked(buscarSessoes).mockReset().mockResolvedValue(pagina());
+    vi.mocked(alternarTreino).mockReset();
+    vi.mocked(corrigirSessao).mockReset();
     logout.mockReset();
-    vi.unstubAllGlobals();
   });
 
-  describe("carregamento inicial", () => {
-    it("busca o historico com o token do usuario", async () => {
+  describe("carregamento", () => {
+    it("busca as sessoes com o token", async () => {
       render(<PontoScreen />);
 
-      await waitFor(() => {
-        expect(buscarHistorico).toHaveBeenCalledWith("token-de-teste");
-      });
+      await waitFor(() => expect(buscarSessoes).toHaveBeenCalledWith("tok"));
     });
 
-    it("mantem o botao desabilitado enquanto carrega", () => {
-      vi.mocked(buscarHistorico).mockImplementation(() => new Promise(() => {}));
+    it("mostra estado vazio quando nao ha treino nenhum", async () => {
       render(<PontoScreen />);
 
-      expect(screen.getByRole("button", { name: /Começar treino/ })).toBeDisabled();
+      expect(await screen.findByText(/Nenhum treino ainda/)).toBeInTheDocument();
     });
 
-    it("mostra 'Fora do treino' sem historico e nao inventa horario", async () => {
+    it("mostra a mensagem de erro da API", async () => {
+      vi.mocked(buscarSessoes).mockRejectedValue(new ApiError("Conta desativada"));
       render(<PontoScreen />);
 
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: /Começar treino/ })).toBeEnabled();
-      });
-      expect(screen.getByText("Fora do treino")).toBeInTheDocument();
+      expect(await screen.findByText("Conta desativada")).toBeInTheDocument();
     });
 
-    it("mostra erro quando a busca falha", async () => {
-      vi.mocked(buscarHistorico).mockRejectedValue(new ApiError("Token expirado"));
-      render(<PontoScreen />);
-
-      expect(await screen.findByText("Token expirado")).toBeInTheDocument();
-    });
-
-    it("usa mensagem genarica quando a falha nao e da API", async () => {
-      vi.mocked(buscarHistorico).mockRejectedValue(new TypeError("Failed to fetch"));
+    it("usa mensagem generica quando o erro nao e da API", async () => {
+      vi.mocked(buscarSessoes).mockRejectedValue(new TypeError("Failed to fetch"));
       render(<PontoScreen />);
 
       expect(
@@ -93,468 +99,338 @@ describe("PontoScreen", () => {
     });
   });
 
-  describe("estado do botao conforme o ultimo registro", () => {
-    it("mostra 'Começar treino' quando o ultimo registro foi CHECK_OUT", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("out-1", "CHECK_OUT", hojeAs(11)),
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
+  describe("numeros vem do servidor", () => {
+    it("exibe streak e resumo semanal sem recalcular no cliente", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 95 })],
+          resumo: {
+            emAndamento: null,
+            streak: 4,
+            semana: { treinos: 3, minutos: 195 },
+            regras: { duracaoMinimaMin: 20 },
+          },
+        }),
+      );
+
       render(<PontoScreen />);
 
-      expect(
-        await screen.findByRole("button", { name: /Começar treino/ }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Fora do treino desde/)).toBeInTheDocument();
+      expect(await screen.findByText("4")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
+      expect(screen.getByText("3h 15min")).toBeInTheDocument();
     });
 
-    it("mostra 'Finalizar treino' quando ha um CHECK_IN em aberto", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
+    it("mostra 'treino em andamento' quando o servidor diz que ha sessao aberta", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          resumo: {
+            emAndamento: sessao({
+              dayKey: CHAVE_HOJE,
+              status: "OPEN",
+              endedAt: null,
+              durationMin: null,
+            }),
+            streak: 1,
+            semana: { treinos: 0, minutos: 0 },
+            regras: { duracaoMinimaMin: 20 },
+          },
+        }),
+      );
+
       render(<PontoScreen />);
 
-      expect(
-        await screen.findByRole("button", { name: /Finalizar treino/ }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Treino em andamento desde/)).toBeInTheDocument();
+      expect(await screen.findByText(/Treino em andamento desde/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Finalizar treino" })).toBeInTheDocument();
+    });
+
+    it("fora do treino, o botao convida a comecar", async () => {
+      render(<PontoScreen />);
+
+      expect(await screen.findByRole("button", { name: "Começar treino" })).toBeInTheDocument();
+      expect(screen.getByText("Fora do treino")).toBeInTheDocument();
     });
   });
 
-  describe("registrar ponto", () => {
-    it("adiciona o novo registro no topo e vira o botao para 'Finalizar treino'", async () => {
-      vi.mocked(alternarPonto).mockResolvedValue(
-        registro("novo", "CHECK_IN", hojeAs(10)),
+  describe("botao de treino", () => {
+    it("alterna e recarrega, porque os numeros mudam no servidor", async () => {
+      vi.mocked(alternarTreino).mockResolvedValue(
+        sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null, durationMin: null }),
       );
       render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
 
-      const botao = await screen.findByRole("button", { name: /Começar treino/ });
-      await userEvent.click(botao);
+      await userEvent.click(screen.getByRole("button", { name: "Começar treino" }));
 
-      expect(
-        await screen.findByRole("button", { name: /Finalizar treino/ }),
-      ).toBeInTheDocument();
-      expect(alternarPonto).toHaveBeenCalledWith("token-de-teste");
+      await waitFor(() => expect(alternarTreino).toHaveBeenCalledWith("tok"));
+      // 1 no carregamento inicial + 1 depois do toggle
+      expect(vi.mocked(buscarSessoes).mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 
-    it("mostra 'Registrando...' e desabilita o botao durante o envio", async () => {
-      let liberar: (r: Registro) => void = () => {};
-      vi.mocked(alternarPonto).mockImplementation(
-        () => new Promise<Registro>((resolve) => { liberar = resolve; }),
+    it("mostra o erro do cooldown vindo do servidor", async () => {
+      vi.mocked(alternarTreino).mockRejectedValue(
+        new ApiError("Aguarde 25 min para iniciar outro treino"),
       );
       render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
 
-      await userEvent.click(
-        await screen.findByRole("button", { name: /Começar treino/ }),
+      await userEvent.click(screen.getByRole("button", { name: "Começar treino" }));
+
+      expect(await screen.findByText(/Aguarde 25 min/)).toBeInTheDocument();
+    });
+
+    it("reabilita o botao depois de um erro", async () => {
+      vi.mocked(alternarTreino).mockRejectedValue(new ApiError("Falhou"));
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
+
+      await userEvent.click(screen.getByRole("button", { name: "Começar treino" }));
+      await screen.findByText("Falhou");
+
+      expect(screen.getByRole("button", { name: "Começar treino" })).toBeEnabled();
+    });
+  });
+
+  describe("historico", () => {
+    it("mostra a sessao com horario de inicio, fim e duracao", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 90 })] }),
       );
 
-      const botao = await screen.findByRole("button", { name: "Registrando..." });
-      expect(botao).toBeDisabled();
+      render(<PontoScreen />);
 
-      liberar(registro("novo", "CHECK_IN", hojeAs(10)));
+      expect(await screen.findByText("1h 30min")).toBeInTheDocument();
+      expect(screen.getByText("Hoje")).toBeInTheDocument();
+    });
+
+    it("NAO existe mais botao de excluir (historico apagavel inviabiliza placar)", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE })] }),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByText("1h 0min");
+
+      expect(screen.queryByRole("button", { name: /Excluir/ })).not.toBeInTheDocument();
+    });
+
+    it("sessao curta aparece marcada como nao contavel", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [
+            sessao({
+              dayKey: CHAVE_HOJE,
+              status: "SHORT",
+              durationMin: 5,
+              contavel: false,
+            }),
+          ],
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText(/Abaixo de 20 min/)).toBeInTheDocument();
+      expect(screen.getByText("5min")).toBeInTheDocument();
+    });
+
+    it("sessao esquecida mostra 'nao finalizado', nunca as 6h gravadas", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [
+            sessao({
+              dayKey: CHAVE_HOJE,
+              status: "AUTO_CLOSED",
+              durationMin: 360,
+              contavel: false,
+            }),
+          ],
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText("nao finalizado")).toBeInTheDocument();
+      expect(screen.queryByText("6h 0min")).not.toBeInTheDocument();
+      expect(screen.getByText(/faltou finalizar/)).toBeInTheDocument();
+    });
+
+    it("agrupa por dia usando o dayKey do servidor", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [
+            sessao({ dayKey: CHAVE_HOJE, id: "a" }),
+            sessao({ dayKey: "2026-01-15", id: "b" }),
+          ],
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText("Hoje")).toBeInTheDocument();
+      expect(screen.getByText("15/01/2026")).toBeInTheDocument();
+    });
+
+    it("nao mostra botao de corrigir em sessao aberta", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [
+            sessao({
+              dayKey: CHAVE_HOJE,
+              status: "OPEN",
+              endedAt: null,
+              durationMin: null,
+            }),
+          ],
+        }),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByText("em andamento");
+
+      expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("paginacao", () => {
+    it("sem cursor, nao oferece carregar mais", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE })], proximoCursor: null }),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByText("1h 0min");
+
+      expect(screen.queryByRole("button", { name: /Carregar mais/ })).not.toBeInTheDocument();
+    });
+
+    it("carrega a proxima pagina e acumula sem repetir", async () => {
+      vi.mocked(buscarSessoes)
+        .mockResolvedValueOnce(
+          pagina({
+            itens: [sessao({ dayKey: CHAVE_HOJE, id: "p1", durationMin: 60 })],
+            proximoCursor: "cursor-1",
+          }),
+        )
+        .mockResolvedValueOnce(
+          pagina({
+            itens: [sessao({ dayKey: "2026-01-15", id: "p2", durationMin: 45 })],
+            proximoCursor: null,
+          }),
+        );
+
+      render(<PontoScreen />);
+      await userEvent.click(await screen.findByRole("button", { name: /Carregar mais/ }));
+
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Finalizar treino/ }),
-        ).toBeEnabled();
+        expect(buscarSessoes).toHaveBeenLastCalledWith("tok", { cursor: "cursor-1" });
       });
-    });
-
-    it("mostra erro e nao altera o historico quando falha", async () => {
-      vi.mocked(alternarPonto).mockRejectedValue(new ApiError("Limite excedido"));
-      render(<PontoScreen />);
-
-      await userEvent.click(
-        await screen.findByRole("button", { name: /Começar treino/ }),
-      );
-
-      expect(await screen.findByText("Limite excedido")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Começar treino/ }),
-      ).toBeInTheDocument();
+      // Os dois itens ficam na tela; o botao desaparece no fim da lista.
+      expect(await screen.findByText("45min")).toBeInTheDocument();
+      expect(screen.getByText("1h 0min")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Carregar mais/ })).not.toBeInTheDocument();
     });
   });
 
-  describe("duracao do treino", () => {
-    it("mostra a duracao calculada de uma sessao concluida", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("out-1", "CHECK_OUT", hojeAs(11, 30)),
-        registro("in-1", "CHECK_IN", hojeAs(10, 0)),
-      ]);
+  describe("correcao auditada", () => {
+    async function abrirFormulario() {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 10, status: "SHORT", contavel: false })] }),
+      );
       render(<PontoScreen />);
+      await userEvent.click(await screen.findByRole("button", { name: "Corrigir treino" }));
+    }
+
+    it("o motivo e obrigatorio: sem ele nao da pra salvar", async () => {
+      await abrirFormulario();
+
+      expect(screen.getByRole("button", { name: "Salvar correcao" })).toBeDisabled();
+    });
+
+    it("com motivo preenchido, envia a correcao e recarrega", async () => {
+      vi.mocked(corrigirSessao).mockResolvedValue(
+        sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 60 }),
+      );
+      await abrirFormulario();
+
+      await userEvent.type(
+        screen.getByPlaceholderText(/esqueci de finalizar/i),
+        "Esqueci de finalizar",
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
 
       await waitFor(() => {
-        expect(screen.getAllByText("Duração").length).toBeGreaterThan(0);
-      });
-      expect(screen.getAllByText("1h 30min").length).toBeGreaterThan(0);
-    });
-
-    it("nao mostra duracao para um treino ainda em andamento", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      await screen.findByRole("button", { name: /Finalizar treino/ });
-      expect(screen.queryByText("Duração")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("resumo semanal", () => {
-    it("mostra streak de 1 dia no singular quando treinou hoje", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      expect(await screen.findByText("dia seguido")).toBeInTheDocument();
-    });
-
-    it("conta os treinos concluidos da semana", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("out-1", "CHECK_OUT", hojeAs(11)),
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      expect(await screen.findByText("treino essa semana")).toBeInTheDocument();
-    });
-  });
-
-  describe("corrigir registro", () => {
-    it("abre o input de data ao clicar em corrigir", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      await userEvent.click(
-        (await screen.findAllByLabelText("Corrigir registro"))[0],
-      );
-
-      expect(screen.getByLabelText("Salvar correcao")).toBeInTheDocument();
-      expect(screen.getByLabelText("Cancelar edicao")).toBeInTheDocument();
-    });
-
-    it("salva a correcao e reordena o historico", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      vi.mocked(editarRegistro).mockResolvedValue(
-        registro("in-1", "CHECK_IN", hojeAs(8)),
-      );
-      render(<PontoScreen />);
-
-      await userEvent.click(
-        (await screen.findAllByLabelText("Corrigir registro"))[0],
-      );
-      await userEvent.click(screen.getByLabelText("Salvar correcao"));
-
-      await waitFor(() => {
-        expect(editarRegistro).toHaveBeenCalledWith(
-          "token-de-teste",
-          "in-1",
-          expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        expect(corrigirSessao).toHaveBeenCalledWith(
+          "tok",
+          "s1",
+          expect.objectContaining({ reason: "Esqueci de finalizar" }),
         );
       });
-      expect(screen.queryByLabelText("Salvar correcao")).not.toBeInTheDocument();
     });
 
-    it("cancelar fecha a edicao sem chamar a API", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
+    it("manda o fim em ISO, nao o texto do input", async () => {
+      vi.mocked(corrigirSessao).mockResolvedValue(sessao({ dayKey: CHAVE_HOJE, id: "s1" }));
+      await abrirFormulario();
 
-      await userEvent.click(
-        (await screen.findAllByLabelText("Corrigir registro"))[0],
-      );
-      await userEvent.click(screen.getByLabelText("Cancelar edicao"));
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Motivo ok");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
 
-      expect(screen.queryByLabelText("Salvar correcao")).not.toBeInTheDocument();
-      expect(editarRegistro).not.toHaveBeenCalled();
+      await waitFor(() => expect(corrigirSessao).toHaveBeenCalled());
+      const enviado = vi.mocked(corrigirSessao).mock.calls[0][2];
+      expect(enviado.endedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
     });
 
-    it("mostra erro e mantem a edicao aberta quando salvar falha", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      vi.mocked(editarRegistro).mockRejectedValue(
-        new ApiError("Registro nao encontrado"),
+    it("mostra o erro do servidor quando a correcao e recusada", async () => {
+      vi.mocked(corrigirSessao).mockRejectedValue(
+        new ApiError("Nao da pra registrar treino no futuro"),
       );
-      render(<PontoScreen />);
+      await abrirFormulario();
 
-      await userEvent.click(
-        (await screen.findAllByLabelText("Corrigir registro"))[0],
-      );
-      await userEvent.click(screen.getByLabelText("Salvar correcao"));
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Tentativa");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
 
-      expect(await screen.findByText("Registro nao encontrado")).toBeInTheDocument();
-      expect(screen.getByLabelText("Salvar correcao")).toBeInTheDocument();
-    });
-  });
-
-  describe("excluir registro", () => {
-    it("pede confirmacao antes de excluir", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      const confirm = vi.fn().mockReturnValue(false);
-      vi.stubGlobal("confirm", confirm);
-      render(<PontoScreen />);
-
-      await userEvent.click(
-        (await screen.findAllByLabelText("Excluir registro"))[0],
-      );
-
-      expect(confirm).toHaveBeenCalled();
-      expect(excluirRegistro).not.toHaveBeenCalled();
+      expect(await screen.findByText(/treino no futuro/)).toBeInTheDocument();
     });
 
-    it("remove o registro da tela quando confirmado", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      vi.mocked(excluirRegistro).mockResolvedValue(undefined);
-      vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
-      render(<PontoScreen />);
+    it("cancelar fecha o formulario sem enviar nada", async () => {
+      await abrirFormulario();
 
-      await userEvent.click(
-        (await screen.findAllByLabelText("Excluir registro"))[0],
-      );
+      await userEvent.click(screen.getByRole("button", { name: "Cancelar correcao" }));
 
-      await waitFor(() => {
-        expect(excluirRegistro).toHaveBeenCalledWith("token-de-teste", "in-1");
-      });
-      await waitFor(() => {
-        expect(screen.queryByLabelText("Excluir registro")).not.toBeInTheDocument();
-      });
-    });
-
-    it("mostra erro e mantem o registro quando a exclusao falha", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      vi.mocked(excluirRegistro).mockRejectedValue(
-        new ApiError("Registro nao encontrado"),
-      );
-      vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
-      render(<PontoScreen />);
-
-      await userEvent.click(
-        (await screen.findAllByLabelText("Excluir registro"))[0],
-      );
-
-      expect(await screen.findByText("Registro nao encontrado")).toBeInTheDocument();
-      expect(screen.getAllByLabelText("Excluir registro").length).toBeGreaterThan(0);
+      expect(corrigirSessao).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Corrigir treino" })).toBeInTheDocument();
     });
   });
 
-  describe("sair", () => {
-    it("mostra o nome do usuario e chama logout", async () => {
-      render(<PontoScreen />);
+  describe("cabecalho", () => {
+    it("mostra o Painel so quando recebe onOpenAdmin", async () => {
+      const { unmount } = render(<PontoScreen />);
+      await screen.findByText("Fora do treino");
+      expect(screen.queryByRole("button", { name: /Painel/ })).not.toBeInTheDocument();
+      unmount();
 
-      const botaoSair = await screen.findByText(/Sair \(Fulano\)/);
-      await userEvent.click(botaoSair);
+      const onOpenAdmin = vi.fn();
+      render(<PontoScreen onOpenAdmin={onOpenAdmin} />);
+      await userEvent.click(await screen.findByRole("button", { name: /Painel/ }));
+
+      expect(onOpenAdmin).toHaveBeenCalled();
+    });
+
+    it("o botao sair chama logout", async () => {
+      render(<PontoScreen />);
+      await userEvent.click(await screen.findByRole("button", { name: /Sair/ }));
 
       expect(logout).toHaveBeenCalled();
     });
   });
 
-  describe("acesso ao painel de supervisor", () => {
-    it("nao mostra o botao Painel quando onOpenAdmin nao e passado", async () => {
-      render(<PontoScreen />);
-      await screen.findByRole("button", { name: /Começar treino/ });
-      expect(screen.queryByRole("button", { name: /Painel/ })).not.toBeInTheDocument();
-    });
+  it("a sessao contavel nao ganha o aviso de 'nao conta'", async () => {
+    vi.mocked(buscarSessoes).mockResolvedValue(
+      pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 60 })] }),
+    );
 
-    it("mostra o botao Painel e chama onOpenAdmin ao clicar", async () => {
-      const onOpenAdmin = vi.fn();
-      render(<PontoScreen onOpenAdmin={onOpenAdmin} />);
+    render(<PontoScreen />);
+    const linha = (await screen.findByText("1h 0min")).closest("li")!;
 
-      const botao = await screen.findByRole("button", { name: /Painel/ });
-      await userEvent.click(botao);
-
-      expect(onOpenAdmin).toHaveBeenCalled();
-    });
-  });
-
-  describe("historico agrupado por dia", () => {
-    function diasAtrasAs(dias: number, hora: number, minuto = 0): Date {
-      const data = new Date();
-      data.setDate(data.getDate() - dias);
-      data.setHours(hora, minuto, 0, 0);
-      return data;
-    }
-
-    function secaoHistorico() {
-      return screen.getByText("Histórico").closest("section")!;
-    }
-
-    it("mostra cabecalho 'Hoje' para os registros de hoje", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      await screen.findByRole("button", { name: /Finalizar treino/ });
-      expect(within(secaoHistorico()).getByText("Hoje")).toBeInTheDocument();
-    });
-
-    it("mostra 'Hoje' e 'Ontem' como grupos separados", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("hoje-1", "CHECK_IN", hojeAs(10)),
-        registro("ontem-1", "CHECK_OUT", diasAtrasAs(1, 11)),
-        registro("ontem-2", "CHECK_IN", diasAtrasAs(1, 10)),
-      ]);
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
-      });
-      expect(within(secao).getByText("Ontem")).toBeInTheDocument();
-    });
-
-    it("usa a data em dd/mm/aaaa para dias mais antigos", async () => {
-      const antigo = diasAtrasAs(5, 10);
-      const dataEsperada = antigo.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("antigo-1", "CHECK_IN", antigo),
-      ]);
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getByText(dataEsperada)).toBeInTheDocument();
-      });
-      expect(within(secao).queryByText("Hoje")).not.toBeInTheDocument();
-    });
-
-    it("mostra os grupos do dia mais recente para o mais antigo", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("hoje-1", "CHECK_IN", hojeAs(10)),
-        registro("ontem-1", "CHECK_IN", diasAtrasAs(1, 10)),
-      ]);
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
-      });
-
-      const titulos = within(secao)
-        .getAllByRole("heading", { level: 3 })
-        .map((h) => h.textContent);
-      expect(titulos).toEqual(["Hoje", "Ontem"]);
-    });
-
-    it("nao mostra nenhum cabecalho de dia quando o historico esta vazio", async () => {
-      render(<PontoScreen />);
-
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: /Começar treino/ })).toBeEnabled();
-      });
-      expect(
-        within(secaoHistorico()).queryByRole("heading", { level: 3 }),
-      ).not.toBeInTheDocument();
-    });
-
-    it("agrupa os registros no dia certo (cada dia com os seus)", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("hoje-in", "CHECK_IN", hojeAs(10)),
-        registro("ontem-out", "CHECK_OUT", diasAtrasAs(1, 11)),
-        registro("ontem-in", "CHECK_IN", diasAtrasAs(1, 10)),
-      ]);
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getByText("Hoje")).toBeInTheDocument();
-      });
-
-      // Hoje tem 1 registro (so o inicio); ontem tem 2 (inicio e fim) mais a
-      // linha de duracao da sessao concluida.
-      const grupos = secao.querySelectorAll(".grupo-dia");
-      expect(grupos).toHaveLength(2);
-      expect(grupos[0].querySelectorAll(".linha-registro")).toHaveLength(1);
-      expect(
-        grupos[1].querySelectorAll(".linha-registro:not(.linha-duracao)"),
-      ).toHaveLength(2);
-    });
-
-    it("mantem a duracao de um treino que atravessa a meia-noite, mesmo em grupos diferentes", async () => {
-      const inicio = diasAtrasAs(1, 23, 30);
-      const fim = new Date(inicio.getTime() + 60 * 60000);
-
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("out-1", "CHECK_OUT", fim),
-        registro("in-1", "CHECK_IN", inicio),
-      ]);
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getAllByText("Duração").length).toBeGreaterThan(0);
-      });
-      // Os dois registros caem em dias distintos, mas a duracao continua
-      // sendo calculada sobre o historico inteiro.
-      expect(secao.querySelectorAll(".grupo-dia")).toHaveLength(2);
-      expect(within(secao).getAllByText("1h 0min").length).toBeGreaterThan(0);
-    });
-
-    it("reagrupa quando um registro e excluido", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("hoje-in", "CHECK_IN", hojeAs(10)),
-        registro("ontem-in", "CHECK_IN", diasAtrasAs(1, 10)),
-      ]);
-      vi.mocked(excluirRegistro).mockResolvedValue(undefined);
-      vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
-      render(<PontoScreen />);
-
-      const secao = secaoHistorico();
-      await waitFor(() => {
-        expect(within(secao).getByText("Ontem")).toBeInTheDocument();
-      });
-
-      // Exclui o registro de hoje: o grupo "Hoje" deve desaparecer.
-      const excluirDeHoje = within(
-        secao.querySelectorAll(".grupo-dia")[0] as HTMLElement,
-      ).getByLabelText("Excluir registro");
-      await userEvent.click(excluirDeHoje);
-
-      await waitFor(() => {
-        expect(within(secao).queryByText("Hoje")).not.toBeInTheDocument();
-      });
-      expect(within(secao).getByText("Ontem")).toBeInTheDocument();
-    });
-  });
-
-  describe("secao Treino Anterior", () => {
-    it("nao aparece quando nao ha sessao concluida", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      await screen.findByRole("button", { name: /Finalizar treino/ });
-      expect(screen.queryByText("Treino Anterior")).not.toBeInTheDocument();
-    });
-
-    it("mostra o inicio e o fim da ultima sessao concluida", async () => {
-      vi.mocked(buscarHistorico).mockResolvedValue([
-        registro("out-1", "CHECK_OUT", hojeAs(11)),
-        registro("in-1", "CHECK_IN", hojeAs(10)),
-      ]);
-      render(<PontoScreen />);
-
-      const titulo = await screen.findByText("Treino Anterior");
-      const secao = titulo.closest("section")!;
-
-      expect(within(secao).getByText("Fim do treino")).toBeInTheDocument();
-      expect(within(secao).getByText("Início do treino")).toBeInTheDocument();
-    });
+    expect(within(linha).queryByText(/nao conta/)).not.toBeInTheDocument();
   });
 });

@@ -77,9 +77,11 @@ export class SessionsService {
   async emAndamento(userId: string) {
     await this.fecharAbandonadas(userId);
 
-    return this.prisma.workoutSession.findFirst({
+    const aberta = await this.prisma.workoutSession.findFirst({
       where: { userId, status: SessionStatus.OPEN },
     });
+
+    return aberta ? this.paraResposta(aberta) : null;
   }
 
   /** Inicia um treino. O horario vem SEMPRE do servidor. */
@@ -147,7 +149,10 @@ export class SessionsService {
   /** Um botao so, como a tela de hoje: abre se estiver fechado, fecha se aberto. */
   async alternar(userId: string) {
     const aberta = await this.emAndamento(userId);
-    return aberta ? this.fechar(userId) : this.abrir(userId);
+    const sessao = aberta ? await this.fechar(userId) : await this.abrir(userId);
+
+    // Mesma forma de resposta em todo lugar: a tela nao lida com dois formatos.
+    return this.paraResposta(sessao);
   }
 
   /**

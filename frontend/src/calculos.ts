@@ -1,9 +1,11 @@
-import type { Registro } from "./types";
+import type { Sessao } from "./types";
 
-export interface Sessao {
-  inicio: Registro;
-  fim: Registro;
-}
+// O que sobrou aqui e formatacao e agrupamento para exibir.
+//
+// Streak, resumo da semana, pareamento e classificacao saíram de proposito na
+// v0.9: agora vem calculados do servidor, no fuso do usuario. Enquanto essa
+// conta vivia no cliente, ela usava o fuso do aparelho e podia ser burlada --
+// era o que permitia inflar o contador da semana com treinos de 1 segundo.
 
 export function formatarHorario(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
@@ -21,83 +23,60 @@ export function formatarMinutos(totalMinutos: number): string {
   return `${horas}h ${minutosRestantes}min`;
 }
 
-export function duracaoEmMinutos(inicioIso: string, fimIso: string): number {
-  return Math.max(0, Math.round((new Date(fimIso).getTime() - new Date(inicioIso).getTime()) / 60000));
-}
-
 export function isoParaDatetimeLocal(iso: string): string {
   const data = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}T${pad(data.getHours())}:${pad(data.getMinutes())}`;
 }
 
-export function ordenarPorHorarioDesc(registros: Registro[]): Registro[] {
-  return [...registros].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
-}
-
-/**
- * Espera o historico em ordem decrescente de horario (mais recente primeiro),
- * como vem da API: para cada CHECK_OUT, o registro seguinte na lista e o
- * CHECK_IN que o iniciou.
- */
-export function calcularSessoesCompletas(historico: Registro[]): Sessao[] {
-  const sessoes: Sessao[] = [];
-
-  for (let i = 0; i < historico.length; i++) {
-    const fim = historico[i];
-    if (fim.type !== "CHECK_OUT") continue;
-
-    const inicio = historico[i + 1];
-    if (inicio?.type === "CHECK_IN") {
-      sessoes.push({ inicio, fim });
-    }
-  }
-
-  return sessoes;
-}
-
 export function chaveDoDia(data: Date): string {
   return `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
 }
 
-export interface GrupoDeDia {
+/**
+ * Converte o dayKey do servidor (YYYY-MM-DD, ja no fuso do usuario) em Date
+ * local. Ao meio-dia de proposito: em qualquer fuso, meio-dia continua sendo
+ * o mesmo dia civil, enquanto meia-noite pode escorregar para o dia anterior.
+ */
+export function dataDaChave(dayKey: string): Date {
+  const [ano, mes, dia] = dayKey.split("-").map(Number);
+  return new Date(ano, mes - 1, dia, 12, 0, 0, 0);
+}
+
+export interface GrupoDeSessoes {
+  /** O dayKey do servidor. */
   chave: string;
-  /** Meia-noite local do dia, para rotular e ordenar o grupo. */
+  /** Data local do dia, para rotular o grupo. */
   data: Date;
-  registros: Registro[];
+  sessoes: Sessao[];
 }
 
 /**
- * Agrupa o historico por dia local, do dia mais recente para o mais antigo
- * (e, dentro de cada dia, do registro mais recente para o mais antigo).
+ * Agrupa as sessoes por dia usando o `dayKey` que o servidor mandou -- e nao
+ * recalculando o dia a partir do timestamp. Assim um treino as 22h aparece no
+ * dia certo mesmo que o aparelho esteja em outro fuso.
  *
- * O agrupamento e so de exibicao: o pareamento check-in/check-out continua
- * sendo feito sobre o historico inteiro por calcularSessoesCompletas, senao
- * um treino que atravessa a meia-noite ficaria sem duracao.
+ * A lista vem do servidor da mais recente pra mais antiga; a ordem e mantida.
  */
-export function agruparPorDia(historico: Registro[]): GrupoDeDia[] {
-  const grupos = new Map<string, GrupoDeDia>();
+export function agruparSessoesPorDia(sessoes: Sessao[]): GrupoDeSessoes[] {
+  const grupos: GrupoDeSessoes[] = [];
 
-  for (const registro of historico) {
-    const data = new Date(registro.timestamp);
-    const chave = chaveDoDia(data);
+  for (const sessao of sessoes) {
+    const ultimo = grupos[grupos.length - 1];
 
-    let grupo = grupos.get(chave);
-    if (!grupo) {
-      const meiaNoite = new Date(data);
-      meiaNoite.setHours(0, 0, 0, 0);
-      grupo = { chave, data: meiaNoite, registros: [] };
-      grupos.set(chave, grupo);
+    if (ultimo && ultimo.chave === sessao.dayKey) {
+      ultimo.sessoes.push(sessao);
+      continue;
     }
 
-    grupo.registros.push(registro);
+    grupos.push({
+      chave: sessao.dayKey,
+      data: dataDaChave(sessao.dayKey),
+      sessoes: [sessao],
+    });
   }
 
-  return [...grupos.values()]
-    .sort((a, b) => b.data.getTime() - a.data.getTime())
-    .map((grupo) => ({ ...grupo, registros: ordenarPorHorarioDesc(grupo.registros) }));
+  return grupos;
 }
 
 /**
@@ -124,40 +103,39 @@ export function rotuloDoDia(data: Date, referencia: Date = new Date()): string {
   });
 }
 
-export function calcularStreak(historico: Registro[]): number {
-  const diasComRegistro = new Set(historico.map((registro) => chaveDoDia(new Date(registro.timestamp))));
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
+/**
+ * O que mostrar na coluna de duracao.
+ *
+ * AUTO_CLOSED nunca mostra o numero: o servidor grava o teto de 6h nessas
+ * sessoes, e exibir "6h" para quem simplesmente esqueceu de finalizar seria
+ * mentira. SHORT mostra a duracao real, mas a tela a marca como nao contavel.
+ */
+export function descricaoDaDuracao(sessao: Sessao): string {
+  if (sessao.status === "OPEN") return "em andamento";
+  if (sessao.status === "AUTO_CLOSED") return "nao finalizado";
+  if (sessao.durationMin === null) return "-";
 
-  if (!diasComRegistro.has(chaveDoDia(cursor))) {
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  let streak = 0;
-  while (diasComRegistro.has(chaveDoDia(cursor))) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
+  return formatarMinutos(sessao.durationMin);
 }
 
-export function inicioDaSemana(): Date {
-  const dia = new Date();
-  dia.setHours(0, 0, 0, 0);
-  const diaDaSemana = dia.getDay();
-  const diasDesdeSegunda = diaDaSemana === 0 ? 6 : diaDaSemana - 1;
-  dia.setDate(dia.getDate() - diasDesdeSegunda);
-  return dia;
+/**
+ * Se o horario de fim pode ser exibido.
+ *
+ * Em AUTO_CLOSED o fim e sintetico (inicio + 6h, o teto), entao mostrar
+ * "18:00 - 00:00" sugeriria que a pessoa treinou ate meia-noite. Nessas
+ * sessoes so o inicio e um fato.
+ */
+export function temFimConfiavel(sessao: Sessao): boolean {
+  return sessao.endedAt !== null && sessao.status !== "AUTO_CLOSED";
 }
 
-export function calcularResumoSemanal(sessoes: Sessao[]): { treinos: number; minutos: number } {
-  const inicio = inicioDaSemana();
-  const sessoesDaSemana = sessoes.filter((sessao) => new Date(sessao.fim.timestamp) >= inicio);
-  const minutos = sessoesDaSemana.reduce(
-    (total, sessao) => total + duracaoEmMinutos(sessao.inicio.timestamp, sessao.fim.timestamp),
-    0,
-  );
+/** Texto curto explicando por que a sessao nao conta (null se conta). */
+export function motivoDeNaoContar(sessao: Sessao, duracaoMinimaMin: number): string | null {
+  if (sessao.contavel || sessao.status === "OPEN") return null;
 
-  return { treinos: sessoesDaSemana.length, minutos };
+  if (sessao.status === "AUTO_CLOSED") {
+    return "Encerrado automaticamente: faltou finalizar";
+  }
+
+  return `Abaixo de ${duracaoMinimaMin} min: nao conta na semana`;
 }

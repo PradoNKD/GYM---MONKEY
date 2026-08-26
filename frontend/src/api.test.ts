@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  alternarPonto,
+  alternarTreino,
   ApiError,
   atualizarUsuario,
-  buscarHistorico,
-  editarRegistro,
+  buscarSessoes,
+  corrigirSessao,
   entrar,
-  excluirRegistro,
   listarUsuarios,
   registrar,
 } from "./api";
@@ -28,6 +27,20 @@ function respostaErro(body: unknown, status = 400) {
     json: async () => body,
   } as Response;
 }
+
+describe("cutover para /sessions", () => {
+  it("o modulo nao expoe mais as funcoes de /time-entries", async () => {
+    // A tela nao fala mais com as rotas antigas. Elas seguem no ar como
+    // auditoria, mas o frontend nao as usa -- e isto impede que voltem sem
+    // alguem perceber.
+    const api = await import("./api");
+
+    expect(api).not.toHaveProperty("buscarHistorico");
+    expect(api).not.toHaveProperty("alternarPonto");
+    expect(api).not.toHaveProperty("editarRegistro");
+    expect(api).not.toHaveProperty("excluirRegistro");
+  });
+});
 
 describe("api", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -71,51 +84,63 @@ describe("api", () => {
     });
 
     it("envia Bearer token nas rotas autenticadas", async () => {
-      fetchMock.mockResolvedValue(respostaOk([]));
+      fetchMock.mockResolvedValue(respostaOk({ itens: [] }));
 
-      await buscarHistorico("meu-token");
+      await buscarSessoes("meu-token");
 
       expect(fetchMock).toHaveBeenCalledWith(
-        `${API_URL}/time-entries`,
+        `${API_URL}/sessions`,
         expect.objectContaining({
           headers: expect.objectContaining({ Authorization: "Bearer meu-token" }),
         }),
       );
     });
 
-    it("usa POST em /time-entries/toggle", async () => {
-      fetchMock.mockResolvedValue(respostaOk({ id: "1", type: "CHECK_IN" }));
+    it("monta a query de paginacao so com o que foi informado", async () => {
+      fetchMock.mockResolvedValue(respostaOk({ itens: [] }));
 
-      await alternarPonto("meu-token");
+      await buscarSessoes("t", { cursor: "abc", limite: 10 });
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        `${API_URL}/sessions?cursor=abc&limite=10`,
+        expect.anything(),
+      );
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${API_URL}/time-entries/toggle`,
-        expect.objectContaining({ method: "POST" }),
+      await buscarSessoes("t", { cursor: "abc" });
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        `${API_URL}/sessions?cursor=abc`,
+        expect.anything(),
       );
     });
 
-    it("usa PATCH com o timestamp no corpo ao editar", async () => {
+    it("usa POST em /sessions/toggle e NAO manda horario", async () => {
+      fetchMock.mockResolvedValue(respostaOk({ id: "1", status: "OPEN" }));
+
+      await alternarTreino("meu-token");
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(`${API_URL}/sessions/toggle`);
+      expect(init.method).toBe("POST");
+      // Quem marca o horario e o servidor: nada de timestamp no corpo.
+      expect(init.body).toBeUndefined();
+    });
+
+    it("usa PATCH com motivo e horario ao corrigir a sessao", async () => {
       fetchMock.mockResolvedValue(respostaOk({ id: "abc" }));
 
-      await editarRegistro("meu-token", "abc", "2026-08-18T09:00:00.000Z");
+      await corrigirSessao("meu-token", "abc", {
+        endedAt: "2026-08-26T14:00:00.000Z",
+        reason: "Esqueci de finalizar",
+      });
 
       expect(fetchMock).toHaveBeenCalledWith(
-        `${API_URL}/time-entries/abc`,
+        `${API_URL}/sessions/abc`,
         expect.objectContaining({
           method: "PATCH",
-          body: JSON.stringify({ timestamp: "2026-08-18T09:00:00.000Z" }),
+          body: JSON.stringify({
+            endedAt: "2026-08-26T14:00:00.000Z",
+            reason: "Esqueci de finalizar",
+          }),
         }),
-      );
-    });
-
-    it("usa DELETE no id informado", async () => {
-      fetchMock.mockResolvedValue({ ok: true, status: 204 } as Response);
-
-      await excluirRegistro("meu-token", "abc");
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${API_URL}/time-entries/abc`,
-        expect.objectContaining({ method: "DELETE" }),
       );
     });
 
@@ -150,17 +175,18 @@ describe("api", () => {
 
   describe("tratamento de resposta", () => {
     it("retorna o json quando a resposta e ok", async () => {
-      const historico = [{ id: "1", type: "CHECK_IN" }];
-      fetchMock.mockResolvedValue(respostaOk(historico));
+      const corpo = { itens: [{ id: "1", status: "COMPLETED" }], proximoCursor: null };
+      fetchMock.mockResolvedValue(respostaOk(corpo));
 
-      await expect(buscarHistorico("token")).resolves.toEqual(historico);
+      await expect(buscarSessoes("token")).resolves.toEqual(corpo);
     });
 
     it("retorna undefined em 204 sem tentar parsear o corpo", async () => {
       const json = vi.fn();
       fetchMock.mockResolvedValue({ ok: true, status: 204, json } as unknown as Response);
 
-      await expect(excluirRegistro("token", "abc")).resolves.toBeUndefined();
+      // Nenhuma rota de sessao devolve 204 hoje, mas o helper precisa aguentar.
+      await expect(buscarSessoes("token")).resolves.toBeUndefined();
       expect(json).not.toHaveBeenCalled();
     });
   });
@@ -205,7 +231,7 @@ describe("api", () => {
         },
       } as unknown as Response);
 
-      await expect(buscarHistorico("token")).rejects.toThrow(
+      await expect(buscarSessoes("token")).rejects.toThrow(
         "Erro inesperado ao falar com o servidor",
       );
     });
@@ -213,7 +239,7 @@ describe("api", () => {
     it("usa mensagem padrao quando o corpo do erro nao tem campo message", async () => {
       fetchMock.mockResolvedValue(respostaErro({ statusCode: 500 }, 500));
 
-      await expect(buscarHistorico("token")).rejects.toThrow(
+      await expect(buscarSessoes("token")).rejects.toThrow(
         "Erro inesperado ao falar com o servidor",
       );
     });
@@ -221,13 +247,13 @@ describe("api", () => {
     it("o erro lancado e uma instancia de ApiError (usado para decidir a mensagem na UI)", async () => {
       fetchMock.mockResolvedValue(respostaErro({ message: "qualquer" }, 400));
 
-      await expect(buscarHistorico("token")).rejects.toBeInstanceOf(ApiError);
+      await expect(buscarSessoes("token")).rejects.toBeInstanceOf(ApiError);
     });
 
     it("propaga falha de rede (servidor fora do ar) sem virar ApiError", async () => {
       fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
-      const promessa = buscarHistorico("token");
+      const promessa = buscarSessoes("token");
 
       await expect(promessa).rejects.toThrow("Failed to fetch");
       await expect(promessa).rejects.not.toBeInstanceOf(ApiError);

@@ -107,22 +107,33 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       todas vinculadas ao grupo, nenhuma `OPEN`. Rodar de novo é seguro
       (idempotência confirmada no próprio Neon).
 
-### O que falta para ligar na tela (cutover)
+### Cutover da tela — FEITO
 
-A fundação está pronta e os endpoints existem, mas o frontend **ainda usa
-`/time-entries`**. Enquanto o cutover não acontece, as duas implementações
-coexistem de propósito — a antiga serve a tela, a nova é a que vale.
+O frontend fala com `/sessions`. As rotas `/time-entries` seguem no ar como
+auditoria, mas a tela não as usa mais (há teste garantindo que as funções
+antigas não voltem ao `api.ts`).
 
-Para migrar a tela é preciso decidir duas coisas de produto:
+O que mudou para quem usa:
 
-1. **O botão "excluir registro" some.** Histórico apagável pelo próprio usuário
+1. **O botão "excluir registro" saiu.** Histórico apagável pelo próprio usuário
    é o que inviabiliza qualquer placar, então a API de sessões **não tem
-   `DELETE`**. Corrigir passa a ser o caminho — com motivo, e com rastro.
-2. **Sessão `AUTO_CLOSED` não pode mostrar a duração crua.** Ela grava 360 min
-   (o teto de 6h), então quem esqueceu de finalizar veria "6h" no histórico — e
-   em produção isso já existe: Vanessa e Sidnei têm exatamente esse caso. A tela
-   precisa mostrar algo como "não finalizado", nunca o número.
-3. **Os números da semana caem para quem inflou.** Medido em produção antes de
+   `DELETE`**. Corrigir é o caminho — com motivo obrigatório e com rastro.
+2. **O histórico mostra sessões, não check-ins soltos**: uma linha por treino,
+   com início, fim e duração.
+3. **Sessão que não conta aparece apagada e explicada** ("Abaixo de 20 min: nao
+   conta na semana"), para o número da semana ser explicável olhando a lista.
+4. **Streak e resumo vêm do servidor**; `calculos.ts` ficou só com formatação e
+   agrupamento.
+5. **Paginação por cursor** com "Carregar mais".
+
+Dois cuidados que só apareceram ao olhar a tela renderizada, ambos sobre
+`AUTO_CLOSED` (fim sintético = início + 6h): a duração mostra **"nao
+finalizado"** em vez de "6h", e o **horário de fim não é exibido** — mostrar
+"18:00 - 00:00" sugeriria treino até meia-noite.
+
+Ainda em aberto (anotado, fora da v0.9): o teto de **uma correção manual por
+mês** não é aplicado — hoje não há limite de correções.
+**Os números da semana caem para quem inflou.** Medido em produção antes de
    rodar o backfill (simulação) e confirmado depois, com resultado idêntico:
 
    | Pessoa | Treinos/semana antes | Depois | Por quê |
@@ -133,10 +144,6 @@ Para migrar a tela é preciso decidir duas coisas de produto:
 
    **Ninguém perdeu streak** — todas já estavam em 0. O que cai são contagens
    que nunca corresponderam a treino de verdade.
-
-Fora do escopo da v0.9, anotado: o teto de **uma correção manual por mês**
-(previsto na tabela para sessões auto-encerradas) ainda não é aplicado — hoje
-não há limite de correções.
 
 ### Regras de integridade da sessão
 

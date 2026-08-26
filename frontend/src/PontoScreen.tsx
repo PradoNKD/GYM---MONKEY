@@ -1,212 +1,231 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
-  CheckCircle2,
   Dumbbell,
   Flame,
   LogOut,
   Pencil,
-  Play,
   ShieldCheck,
   Timer,
-  Trash2,
+  TriangleAlert,
   X,
 } from "lucide-react";
-import { alternarPonto, ApiError, buscarHistorico, editarRegistro, excluirRegistro } from "./api";
+import { alternarTreino, ApiError, buscarSessoes, corrigirSessao } from "./api";
 import { useAuth } from "./AuthContext";
 import {
-  agruparPorDia,
-  calcularResumoSemanal,
-  calcularSessoesCompletas,
-  calcularStreak,
-  duracaoEmMinutos,
+  agruparSessoesPorDia,
+  descricaoDaDuracao,
   formatarHorario,
   formatarMinutos,
   isoParaDatetimeLocal,
-  ordenarPorHorarioDesc,
+  motivoDeNaoContar,
   rotuloDoDia,
+  temFimConfiavel,
 } from "./calculos";
-import type { Registro } from "./types";
+import type { PaginaSessoes, Sessao } from "./types";
 
 export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
-  const [historico, setHistorico] = useState<Registro[]>([]);
+  const [pagina, setPagina] = useState<PaginaSessoes | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+
+  // Correcao em andamento (uma por vez).
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [valorEdicao, setValorEdicao] = useState("");
-  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [fimEdicao, setFimEdicao] = useState("");
+  const [motivoEdicao, setMotivoEdicao] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  const ultimoRegistro = historico[0];
-  const checkedIn = ultimoRegistro?.type === "CHECK_IN";
-
-  const sessoesCompletas = useMemo(() => calcularSessoesCompletas(historico), [historico]);
-  const duracaoPorRegistroId = useMemo(() => {
-    const mapa = new Map<string, string>();
-    sessoesCompletas.forEach(({ inicio, fim }) => {
-      mapa.set(fim.id, formatarMinutos(duracaoEmMinutos(inicio.timestamp, fim.timestamp)));
-    });
-    return mapa;
-  }, [sessoesCompletas]);
-
-  const streak = useMemo(() => calcularStreak(historico), [historico]);
-  const resumoSemanal = useMemo(() => calcularResumoSemanal(sessoesCompletas), [sessoesCompletas]);
-  const historicoPorDia = useMemo(() => agruparPorDia(historico), [historico]);
-
-  useEffect(() => {
+  const carregar = useCallback(async () => {
     if (!token) return;
-
-    buscarHistorico(token)
-      .then(setHistorico)
-      .catch((error) => {
-        setErro(error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico");
-      })
-      .finally(() => setCarregando(false));
+    try {
+      setPagina(await buscarSessoes(token));
+    } catch (error) {
+      setErro(
+        error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico",
+      );
+    } finally {
+      setCarregando(false);
+    }
   }, [token]);
 
-  async function registrarPonto() {
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  const resumo = pagina?.resumo;
+  const emAndamento = resumo?.emAndamento ?? null;
+  const duracaoMinima = resumo?.regras.duracaoMinimaMin ?? 20;
+  const grupos = useMemo(
+    () => agruparSessoesPorDia(pagina?.itens ?? []),
+    [pagina?.itens],
+  );
+
+  async function alternar() {
     if (!token) return;
     setErro(null);
     setEnviando(true);
 
     try {
-      const registro = await alternarPonto(token);
-      setHistorico((historicoAtual) => [registro, ...historicoAtual]);
+      await alternarTreino(token);
+      // Recarrega em vez de remendar o estado local: streak e resumo da semana
+      // sao calculados no servidor, entao so ele sabe os numeros novos.
+      await carregar();
     } catch (error) {
-      setErro(error instanceof ApiError ? error.message : "Nao foi possivel registrar o ponto");
+      setErro(
+        error instanceof ApiError ? error.message : "Nao foi possivel registrar o treino",
+      );
     } finally {
       setEnviando(false);
     }
   }
 
-  function iniciarEdicao(registro: Registro) {
-    setErro(null);
-    setEditandoId(registro.id);
-    setValorEdicao(isoParaDatetimeLocal(registro.timestamp));
-  }
-
-  function cancelarEdicao() {
-    setEditandoId(null);
-  }
-
-  async function salvarEdicao(id: string) {
-    if (!token || !valorEdicao) return;
-    setSalvandoEdicao(true);
-    setErro(null);
+  async function carregarMais() {
+    if (!token || !pagina?.proximoCursor) return;
+    setCarregandoMais(true);
 
     try {
-      const atualizado = await editarRegistro(token, id, new Date(valorEdicao).toISOString());
-      setHistorico((atual) =>
-        ordenarPorHorarioDesc(atual.map((registro) => (registro.id === id ? atualizado : registro))),
-      );
-      setEditandoId(null);
+      const proxima = await buscarSessoes(token, { cursor: pagina.proximoCursor });
+      setPagina({
+        ...proxima,
+        itens: [...pagina.itens, ...proxima.itens],
+      });
     } catch (error) {
-      setErro(error instanceof ApiError ? error.message : "Nao foi possivel corrigir o registro");
+      setErro(
+        error instanceof ApiError ? error.message : "Nao foi possivel carregar mais treinos",
+      );
     } finally {
-      setSalvandoEdicao(false);
+      setCarregandoMais(false);
     }
   }
 
-  async function excluirEntrada(id: string) {
-    if (!token) return;
-    if (!window.confirm("Excluir este registro do historico?")) return;
-
+  function iniciarCorrecao(sessao: Sessao) {
     setErro(null);
+    setEditandoId(sessao.id);
+    setFimEdicao(sessao.endedAt ? isoParaDatetimeLocal(sessao.endedAt) : "");
+    setMotivoEdicao("");
+  }
+
+  async function salvarCorrecao(id: string) {
+    if (!token || !fimEdicao || motivoEdicao.trim().length < 3) return;
+    setSalvando(true);
+    setErro(null);
+
     try {
-      await excluirRegistro(token, id);
-      setHistorico((atual) => atual.filter((registro) => registro.id !== id));
+      await corrigirSessao(token, id, {
+        endedAt: new Date(fimEdicao).toISOString(),
+        reason: motivoEdicao.trim(),
+      });
+      setEditandoId(null);
+      await carregar();
     } catch (error) {
-      setErro(error instanceof ApiError ? error.message : "Nao foi possivel excluir o registro");
+      setErro(
+        error instanceof ApiError ? error.message : "Nao foi possivel corrigir o treino",
+      );
+    } finally {
+      setSalvando(false);
     }
   }
 
-  function renderLinhaRegistro(registro: Registro) {
-    const emEdicao = editandoId === registro.id;
-
-    if (emEdicao) {
-      return (
-        <li key={registro.id} className="linha-registro">
-          <span className="historico-edicao">
-            <input
-              type="datetime-local"
-              value={valorEdicao}
-              onChange={(event) => setValorEdicao(event.target.value)}
-              disabled={salvandoEdicao}
-            />
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => salvarEdicao(registro.id)}
-              disabled={salvandoEdicao}
-              aria-label="Salvar correcao"
-            >
-              <Check size={16} />
-            </button>
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={cancelarEdicao}
-              disabled={salvandoEdicao}
-              aria-label="Cancelar edicao"
-            >
-              <X size={16} />
-            </button>
-          </span>
-        </li>
-      );
-    }
-
-    const duracao = duracaoPorRegistroId.get(registro.id) ?? null;
-    const Icone = registro.type === "CHECK_IN" ? Play : CheckCircle2;
-
+  function renderCorrecao(sessao: Sessao) {
     return (
-      <Fragment key={registro.id}>
-        <li className="linha-registro">
-          <span className={`linha-tipo ${registro.type === "CHECK_IN" ? "tipo--in" : "tipo--out"}`}>
-            <Icone size={16} />
-            {registro.type === "CHECK_IN" ? "Início do treino" : "Fim do treino"}
-          </span>
-          <span className="historico-horario">{formatarHorario(registro.timestamp)}</span>
-          <span className="historico-acoes">
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => iniciarEdicao(registro)}
-              aria-label="Corrigir registro"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              type="button"
-              className="icon-btn icon-btn--perigo"
-              onClick={() => excluirEntrada(registro.id)}
-              aria-label="Excluir registro"
-            >
-              <Trash2 size={14} />
-            </button>
-          </span>
-        </li>
-        {duracao && (
-          <li className="linha-registro linha-duracao">
-            <span className="linha-tipo">
-              <Timer size={16} />
-              Duração
-            </span>
-            <span className="historico-horario">{duracao}</span>
-          </li>
-        )}
-      </Fragment>
+      <li key={sessao.id} className="linha-registro sessao-edicao">
+        <label className="sessao-campo">
+          Fim do treino
+          <input
+            type="datetime-local"
+            value={fimEdicao}
+            onChange={(e) => setFimEdicao(e.target.value)}
+            disabled={salvando}
+          />
+        </label>
+        <label className="sessao-campo">
+          Motivo da correcao
+          <input
+            type="text"
+            placeholder="Ex.: esqueci de finalizar"
+            value={motivoEdicao}
+            onChange={(e) => setMotivoEdicao(e.target.value)}
+            minLength={3}
+            maxLength={200}
+            disabled={salvando}
+          />
+        </label>
+        <span className="sessao-edicao-acoes">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => salvarCorrecao(sessao.id)}
+            disabled={salvando || !fimEdicao || motivoEdicao.trim().length < 3}
+            aria-label="Salvar correcao"
+          >
+            <Check size={16} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setEditandoId(null)}
+            disabled={salvando}
+            aria-label="Cancelar correcao"
+          >
+            <X size={16} />
+          </button>
+        </span>
+      </li>
     );
   }
 
-  const sessaoAnterior = sessoesCompletas[0];
+  function renderSessao(sessao: Sessao) {
+    if (editandoId === sessao.id) return renderCorrecao(sessao);
+
+    const aviso = motivoDeNaoContar(sessao, duracaoMinima);
+    const podeCorrigir = sessao.status !== "OPEN";
+
+    return (
+      <li
+        key={sessao.id}
+        className={`linha-registro linha-sessao ${sessao.contavel ? "" : "linha-sessao--nao-conta"}`}
+      >
+        <span className="sessao-info">
+          <span className="sessao-horas">
+            {formatarHorario(sessao.startedAt)}
+            {temFimConfiavel(sessao) ? ` - ${formatarHorario(sessao.endedAt!)}` : ""}
+          </span>
+          {aviso && (
+            <span className="sessao-aviso">
+              <TriangleAlert size={12} />
+              {aviso}
+            </span>
+          )}
+        </span>
+        <span className="sessao-duracao">{descricaoDaDuracao(sessao)}</span>
+        {podeCorrigir && (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => iniciarCorrecao(sessao)}
+            aria-label="Corrigir treino"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+      </li>
+    );
+  }
 
   return (
     <main className="card">
       <div className="card-header">
         <div className="brand">
-          <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" className="mascot" width={26} height={26} />
+          <img
+            src={`${import.meta.env.BASE_URL}icon-192.png`}
+            alt=""
+            className="mascot"
+            width={26}
+            height={26}
+          />
           <h1>GYM MONKEY</h1>
         </div>
         <div className="card-header-acoes">
@@ -223,26 +242,30 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
         </div>
       </div>
 
-      <p className={`status ${checkedIn ? "status--in" : "status--out"}`}>
-        {ultimoRegistro
-          ? `${checkedIn ? "Treino em andamento" : "Fora do treino"} desde ${formatarHorario(ultimoRegistro.timestamp)}`
+      <p className={`status ${emAndamento ? "status--in" : "status--out"}`}>
+        {emAndamento
+          ? `Treino em andamento desde ${formatarHorario(emAndamento.startedAt)}`
           : "Fora do treino"}
       </p>
 
       <div className="resumo-semanal">
         <div className="resumo-item">
           <Flame size={18} className="resumo-icone resumo-icone--streak" />
-          <span className="resumo-valor">{streak}</span>
-          <span className="resumo-label">{streak === 1 ? "dia seguido" : "dias seguidos"}</span>
+          <span className="resumo-valor">{resumo?.streak ?? 0}</span>
+          <span className="resumo-label">
+            {resumo?.streak === 1 ? "dia seguido" : "dias seguidos"}
+          </span>
         </div>
         <div className="resumo-item">
           <Dumbbell size={18} className="resumo-icone" />
-          <span className="resumo-valor">{resumoSemanal.treinos}</span>
-          <span className="resumo-label">{resumoSemanal.treinos === 1 ? "treino essa semana" : "treinos essa semana"}</span>
+          <span className="resumo-valor">{resumo?.semana.treinos ?? 0}</span>
+          <span className="resumo-label">
+            {resumo?.semana.treinos === 1 ? "treino essa semana" : "treinos essa semana"}
+          </span>
         </div>
         <div className="resumo-item">
           <Timer size={18} className="resumo-icone" />
-          <span className="resumo-valor">{formatarMinutos(resumoSemanal.minutos)}</span>
+          <span className="resumo-valor">{formatarMinutos(resumo?.semana.minutos ?? 0)}</span>
           <span className="resumo-label">essa semana</span>
         </div>
       </div>
@@ -251,35 +274,44 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
 
       <button
         type="button"
-        className={`btn ${checkedIn ? "btn--checkout" : "btn--checkin"}`}
-        onClick={registrarPonto}
+        className={`btn ${emAndamento ? "btn--checkout" : "btn--checkin"}`}
+        onClick={alternar}
         disabled={carregando || enviando}
       >
-        {enviando ? "Registrando..." : checkedIn ? "Finalizar treino" : "Começar treino"}
+        {enviando ? "Registrando..." : emAndamento ? "Finalizar treino" : "Começar treino"}
       </button>
-
-      {sessaoAnterior && (
-        <section className="secao">
-          <h2 className="secao-titulo">Treino Anterior</h2>
-          <ul className="lista-registros">
-            {renderLinhaRegistro(sessaoAnterior.fim)}
-            {renderLinhaRegistro(sessaoAnterior.inicio)}
-          </ul>
-        </section>
-      )}
 
       <section className="secao">
         <h2 className="secao-titulo">Histórico</h2>
+
+        {carregando && <p className="admin-vazio">Carregando...</p>}
+        {!carregando && grupos.length === 0 && (
+          <p className="admin-vazio">
+            Nenhum treino ainda. Toque em "Começar treino" para registrar o primeiro.
+          </p>
+        )}
+
         <div className="lista-registros--historico">
-          {historicoPorDia.map((grupo) => (
+          {grupos.map((grupo) => (
             <div key={grupo.chave} className="grupo-dia">
               <h3 className="grupo-dia-titulo">{rotuloDoDia(grupo.data)}</h3>
               <ul className="lista-registros">
-                {grupo.registros.map((registro) => renderLinhaRegistro(registro))}
+                {grupo.sessoes.map((sessao) => renderSessao(sessao))}
               </ul>
             </div>
           ))}
         </div>
+
+        {pagina?.proximoCursor && (
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={carregarMais}
+            disabled={carregandoMais}
+          >
+            {carregandoMais ? "Carregando..." : "Carregar mais"}
+          </button>
+        )}
       </section>
     </main>
   );

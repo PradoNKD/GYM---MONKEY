@@ -527,3 +527,94 @@
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
+
+/* --- Linha de sessao de treino (v0.9) --- */
+.linha-sessao {
+  align-items: center;
+  gap: 10px;
+}
+
+.sessao-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sessao-horas {
+  font-weight: 700;
+  color: #191919;
+  font-size: 0.88rem;
+}
+
+.sessao-duracao {
+  font-weight: 700;
+  color: #ff4d3d;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Sessao que nao entra nas contas fica visivelmente apagada: o numero da
+   semana precisa ser explicavel olhando o historico. */
+.linha-sessao--nao-conta .sessao-horas {
+  color: #6b6b68;
+  font-weight: 600;
+}
+
+.linha-sessao--nao-conta .sessao-duracao {
+  color: #6b6b68;
+  font-weight: 600;
+}
+
+.sessao-aviso {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: #a16207;
+  line-height: 1.25;
+}
+
+/* Formulario de correcao: empilhado, porque em tela de celular tres campos
+   lado a lado nao cabem. */
+.sessao-edicao {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.sessao-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: #6b6b68;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.sessao-campo input {
+  padding: 9px 10px;
+  font-size: 0.9rem;
+  border: 2px solid #ececec;
+  border-radius: 10px;
+  outline: none;
+  background: #ffffff;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  color: #191919;
+}
+
+.sessao-campo input:focus {
+  border-color: #ff4d3d;
+}
+
+.sessao-edicao-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

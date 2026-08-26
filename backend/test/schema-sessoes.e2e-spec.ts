@@ -1,13 +1,17 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { SessionsService } from '../src/sessions/sessions.service';
 
 // Guarda os invariantes que a migration da v0.9 criou. Sao garantias de BANCO:
 // se alguem mexer no schema e derrubar uma delas, estes testes quebram.
 describe('Schema de sessoes e grupos (e2e)', () => {
   let app: INestApplication;
+  let server: any;
   let prisma: PrismaService;
+  let sessions: SessionsService;
   const criados: string[] = [];
 
   function emailUnico() {
@@ -25,8 +29,13 @@ describe('Schema de sessoes e grupos (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
+    server = app.getHttpServer();
     prisma = app.get(PrismaService);
+    sessions = app.get(SessionsService);
   });
 
   afterAll(async () => {
@@ -137,6 +146,38 @@ describe('Schema de sessoes e grupos (e2e)', () => {
     expect(depois).not.toBeNull();
     expect(depois!.reason).toBe('Ajuste do supervisor');
     expect(depois!.authorId).toBeNull();
+  });
+
+  it('conta nova nasce vinculada ao grupo padrao', async () => {
+    const email = emailUnico();
+    // Passa pelo cadastro de verdade, nao criando o User direto no banco.
+    await request(server)
+      .post('/auth/register')
+      .send({ name: 'Novato', email, password: 'senha1234' })
+      .expect(201);
+
+    const criado = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: { memberships: { include: { group: true } } },
+    });
+    criados.push(criado!.id);
+
+    expect(criado!.memberships).toHaveLength(1);
+    expect(criado!.memberships[0].group.slug).toBe('gym-monkey');
+  });
+
+  it('a sessao de um usuario novo ja sai com grupo', async () => {
+    const email = emailUnico();
+    await request(server)
+      .post('/auth/register')
+      .send({ name: 'Novato', email, password: 'senha1234' })
+      .expect(201);
+    const u = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    criados.push(u!.id);
+
+    const sessao = await sessions.abrir(u!.id);
+
+    expect(sessao.groupId).not.toBeNull();
   });
 
   it('excluir a conta apaga o historico antigo junto (LGPD)', async () => {

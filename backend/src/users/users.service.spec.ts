@@ -10,6 +10,7 @@ describe('UsersService', () => {
       findMany: jest.Mock;
       update: jest.Mock;
     };
+    group: { findUnique: jest.Mock };
   };
 
   beforeEach(() => {
@@ -20,6 +21,7 @@ describe('UsersService', () => {
         findMany: jest.fn(),
         update: jest.fn(),
       },
+      group: { findUnique: jest.fn().mockResolvedValue({ id: 'grupo-1' }) },
     };
     usersService = new UsersService(prisma as unknown as PrismaService);
   });
@@ -39,8 +41,32 @@ describe('UsersService', () => {
           name: 'Fulano da Silva',
           email: 'fulano@example.com',
           passwordHash: 'hash',
+          memberships: { create: { groupId: 'grupo-1' } },
         },
       });
+    });
+
+    it('vincula a conta nova ao grupo padrao', async () => {
+      prisma.user.create.mockResolvedValue({ id: 'user-1' });
+
+      await usersService.create({ name: 'Fulano', email: 'f@x.com', passwordHash: 'h' });
+
+      expect(prisma.group.findUnique).toHaveBeenCalledWith({
+        where: { slug: 'gym-monkey' },
+        select: { id: true },
+      });
+      expect(prisma.user.create.mock.calls[0][0].data.memberships).toEqual({
+        create: { groupId: 'grupo-1' },
+      });
+    });
+
+    it('sem o grupo padrao, ainda cria a conta (nao trava o cadastro)', async () => {
+      prisma.group.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'user-1' });
+
+      await usersService.create({ name: 'Fulano', email: 'f@x.com', passwordHash: 'h' });
+
+      expect(prisma.user.create.mock.calls[0][0].data.memberships).toBeUndefined();
     });
   });
 
