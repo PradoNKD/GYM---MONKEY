@@ -58,13 +58,25 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
 
 ### Checklist
 
-- [ ] **Migration**: entidade `WorkoutSession` — `startedAt`, `endedAt`,
-      `durationMin`, `status`, `source`.
-- [ ] **Migration**: `Group` + `Membership` (mesmo com um grupo só).
-- [ ] **Migration**: `User.timezone`, default `America/Sao_Paulo`, imutável sem
-      o supervisor (senão trocar de fuso vira ferramenta para esticar a semana).
+- [x] **Migration**: entidade `WorkoutSession` — `startedAt`, `endedAt`,
+      `durationMin`, `status`, `source`, mais `dayKey` (o dia já resolvido no
+      fuso do usuário, para a regra de "1 contável por dia" virar `group by`).
+- [x] **Migration**: `Group` + `Membership` (mesmo com um grupo só). A migration
+      já cria o grupo `gym-monkey` e vincula todos os usuários existentes.
+- [x] **Migration**: `User.timezone`, default `America/Sao_Paulo`. A trava de
+      "só o supervisor altera" fica na camada de serviço (ainda a fazer).
+- [x] **Garantia de banco**: índice único parcial impedindo **duas sessões
+      abertas** para a mesma pessoa (`WHERE status = 'OPEN'`). Não dá para furar
+      nem com dois cliques simultâneos — não depende da regra de serviço.
+- [x] **Auditoria**: tabela `SessionCorrection` (somente-append) com autor,
+      motivo e o antes/depois. `authorId` é nulável com `ON DELETE SET NULL`:
+      excluir a conta apaga de verdade (LGPD) sem destruir o rastro nem ser
+      bloqueado por ele.
 - [ ] **Backfill**: converter os `TimeEntry` existentes em sessões pareadas,
-      preservando o histórico atual como registro de auditoria.
+      preservando o histórico atual como registro de auditoria. **Fica em
+      script testável, não na migration** (o pareamento e o `dayKey` no fuso
+      certo pedem teste); logo, precisa ser rodado à mão em produção, como o
+      `set-role`.
 - [ ] **`SessionsService`** com as regras de integridade (tabela abaixo).
 - [ ] **Timestamps gerados exclusivamente no servidor**, nunca aceitos do
       cliente. Persistir em UTC; agregar no fuso do usuário.

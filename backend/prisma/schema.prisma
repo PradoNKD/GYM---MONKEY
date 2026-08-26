@@ -20,7 +20,17 @@ model User {
   role         Role        @default(USER)
   active       Boolean     @default(false)
   createdAt    DateTime    @default(now())
+  // Fuso do usuario: os timestamps ficam em UTC e a agregacao (dia, semana,
+  // streak) acontece neste fuso. Trocar de fuso esticaria a semana, entao a
+  // alteracao fica restrita ao supervisor na camada de servico.
+  timezone     String      @default("America/Sao_Paulo")
   timeEntries  TimeEntry[]
+
+  memberships         Membership[]
+  workoutSessions     WorkoutSession[]
+  // Correcoes que este usuario fez (pode ser em sessao de outra pessoa,
+  // quando um supervisor corrige).
+  authoredCorrections SessionCorrection[] @relation("correctionAuthor")
 }
 
 enum TimeEntryType {
@@ -28,6 +38,9 @@ enum TimeEntryType {
   CHECK_OUT
 }
 
+// Mantido como esta, de proposito: e o historico bruto que ja existe e passa a
+// valer como registro de auditoria da epoca anterior as sessoes. A partir da
+// v0.9 as escritas novas vao para WorkoutSession.
 model TimeEntry {
   id        String        @id @default(uuid())
   type      TimeEntryType
@@ -36,4 +49,108 @@ model TimeEntry {
   user      User          @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+// --- Grupo ---
+// Modelado desde a primeira migration, mesmo havendo um grupo so: criar as
+// tabelas e vincular todo mundo depois, com dados em producao, sairia caro.
+model Group {
+  id        String   @id @default(uuid())
+  name      String
+  // Identificador estavel para o convite por link (v1.3).
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  memberships     Membership[]
+  workoutSessions WorkoutSession[]
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  userId    String
+  groupId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // Uma pessoa entra uma vez por grupo.
+  @@unique([userId, groupId])
+  @@index([groupId])
+}
+
+enum SessionStatus {
+  OPEN // em andamento
+  COMPLETED // fechada normalmente
+  SHORT // fechada abaixo da duracao minima -> nao contabil
+  AUTO_CLOSED // fechada pelo sistema por ficar aberta demais -> nao contabil
+}
+
+enum SessionSource {
+  APP // a pessoa tocou o botao
+  BACKFILL // criada na migracao, a partir dos TimeEntry antigos
+  SYSTEM // auto-encerramento
+  CORRECTION // resultado de uma correcao manual
+}
+
+// A entidade que faltava: um treino e uma sessao, nao dois registros soltos.
+// Sem ela nao havia onde pendurar duracao, regras de integridade nem, mais pra
+// frente, series e cargas.
+model WorkoutSession {
+  id      String  @id @default(uuid())
+  userId  String
+  // Desnormalizado na sessao para as consultas de grupo (placar) nao terem de
+  // passar por Membership a cada leitura.
+  groupId String?
+
+  // Sempre gerados no servidor, nunca aceitos do cliente. Guardados em UTC.
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationMin Int?
+
+  status SessionStatus @default(OPEN)
+  source SessionSource @default(APP)
+
+  // Dia (YYYY-MM-DD) ja resolvido no fuso do usuario. Existe para a regra de
+  // "1 treino contavel por dia" e para as agregacoes por dia/semana virarem
+  // group by, em vez de recalcular fuso a cada leitura.
+  dayKey String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group       Group?              @relation(fields: [groupId], references: [id])
+  corrections SessionCorrection[]
+
+  @@index([userId, dayKey])
+  @@index([userId, startedAt])
+  @@index([groupId, dayKey])
+}
+
+// Auditoria: nada muda sem deixar rastro. Editar uma sessao grava aqui o antes,
+// o depois, quem fez e por que. Esta tabela e somente-append.
+model SessionCorrection {
+  id        String   @id @default(uuid())
+  sessionId String
+  // Nulavel de proposito: excluir a conta tem de apagar de verdade (LGPD),
+  // mas a auditoria nao pode desaparecer. Apagar o autor anonimiza a correcao
+  // em vez de bloquear a exclusao ou destruir o rastro.
+  authorId  String?
+  reason    String
+  createdAt DateTime @default(now())
+
+  // Valores antes e depois da correcao (nulo = campo nao mexido).
+  startedAtBefore DateTime?
+  startedAtAfter  DateTime?
+  endedAtBefore   DateTime?
+  endedAtAfter    DateTime?
+  statusBefore    SessionStatus?
+  statusAfter     SessionStatus?
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author  User?          @relation("correctionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([authorId])
 }
