@@ -4,7 +4,7 @@ Documento pra retomar o trabalho de qualquer máquina. Vive no repositório de
 propósito: `git clone` já te entrega tudo isto, sem depender de nenhuma outra
 ferramenta.
 
-Última atualização: 2026-08-25.
+Última atualização: 2026-08-27.
 
 ---
 
@@ -16,19 +16,24 @@ concluído e validado ponta a ponta em 2026-08-18.
 
 App de check-in de academia: frontend (React+Vite) + backend (NestJS) +
 Postgres, com autenticação por usuário, histórico agrupado por dia,
-streak/resumo semanal e PWA.
+streak/resumo semanal, tema claro/escuro e PWA. Desde a **v0.9** a tela roda
+sobre a entidade `WorkoutSession` (`/sessions`), com correção auditada e as
+regras de integridade no servidor.
 
-**Qualidade:** 216 testes automatizados (88 no backend, 128 no frontend),
+**Qualidade:** 348 testes automatizados (200 no backend, 148 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
 ### O que está em aberto agora
 
-O escopo das próximas versões (v0.9 → v2.0) vive em
-[PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md): checklist da **v0.9 — Fundação**
-(entidade `WorkoutSession`, `Group`, `User.timezone`, auditoria imutável e a
-lógica de `calculos.ts` movida para o servidor), as especificações de regra de
-negócio já fechadas, e as restrições permanentes do produto (LGPD, ponto
-eletrônico, CREF). Nada da v0.9 foi iniciado.
+A **v0.9 — Fundação está entregue e em produção** (2026-08-27), junto com o
+tema claro/escuro, o polimento mobile, a auditoria de segurança e a trava de
+correção de datas. O próximo passo de código é a **v1.0** (meta semanal, streak
+de semanas e congelamento), com especificação pronta.
+
+Estado detalhado, pendências manuais (rotar a senha do Neon, reverter a sessão
+de 240 min) e o escopo das próximas versões vivem em
+[PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md), na seção **Estado atual — onde
+paramos**.
 
 ### A stack, e o trade-off aceito
 

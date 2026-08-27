@@ -13,12 +13,56 @@ Documento visual completo:
 
 ---
 
-## Estado atual
+## Estado atual — onde paramos (2026-08-27)
 
-App **no ar** (ver [HANDOFF](HANDOFF.md)), com autenticação, papel de
-supervisor, aprovação de contas, check-in/check-out, streak diária, resumo
-semanal e PWA. Modelo de dados: `User` + `TimeEntry`. Nada da v0.9 foi
-iniciado.
+App **no ar** (ver [HANDOFF](HANDOFF.md)). A **v0.9 está entregue e em
+produção**: a tela roda sobre `WorkoutSession` (`/sessions`), com `Group` +
+`Membership`, `User.timezone`, auditoria `SessionCorrection`, streak e resumo
+semanal calculados no servidor. O backfill já rodou no Neon. Além do escopo da
+v0.9, no mesmo dia entraram tema claro/escuro, polimento mobile, a auditoria de
+segurança e a trava de correção de datas.
+
+Commits que subiram em 2026-08-27, em ordem:
+
+| Commit | O que entrou |
+|---|---|
+| `9b419fe` | v0.9: cutover da tela para `/sessions` |
+| `0afdffe` | v1.1 antecipado: tema claro/escuro e polimento mobile |
+| `8015b33` | Auditoria de segurança: fecha a escrita em `/time-entries`, conserta o rate limit do login |
+| `eb0cc06` | Trava a correção de datas, tema simplificado para dois estados |
+| `988f64f` | Fecha o furo do +4h na correção e dá retorno na tela (erro, loading, sucesso) |
+| `c54308c` | Ferramenta para desfazer as correções feitas antes da trava |
+
+Suíte ao fim do dia: **200 no backend** (62 unitários + 138 e2e) e **148 no
+frontend**, verdes. Build e lint limpos, com o aviso antigo de
+`react(only-export-components)` em `frontend/src/AuthContext.tsx:87`.
+
+### O que ficou pendente para a pessoa fazer (não é código)
+
+1. **Rotar a senha do Neon.** A connection string foi colada em chat e depois
+   reutilizada nos comandos de manutenção. Trocar no painel do Neon e atualizar
+   a `DATABASE_URL` do Render.
+2. **Reverter a sessão de 240 min do Flávio.** Foi um treino de teste que pegou
+   o bug do +4h. Com a `DATABASE_URL` do Neon no shell:
+   `npm run reverter-correcao -- --listar`, depois
+   `npm run reverter-correcao -- <sessionId>` (simula) e
+   `--confirmar` para aplicar. **Antes de aplicar, conferir a lista**: pode
+   haver correções legítimas de outras pessoas, e essas não devem ser
+   revertidas. Volta para o original de 1 min / `SHORT`.
+3. **Confirmar o teto de +1h em produção.** Não foi possível provar daqui: a
+   trava não vale para supervisor, e o `/health` não expõe versão. Pedir para o
+   Flávio repetir o +4h e olhar se aparece "A correcao pode aumentar o treino em
+   no maximo 60 min".
+4. **Avisar o grupo** das mudanças visíveis: tema claro/escuro, uma correção por
+   treino e só o horário de fim, e um possível erro de uma vez só em PWA com
+   cache velho.
+
+### Próximo passo de código
+
+**v1.0 — meta semanal, streak de semanas e congelamento.** A especificação está
+pronta na seção [Meta semanal, streak de semanas e
+congelamento](#meta-semanal-streak-de-semanas-e-congelamento-v10) deste
+documento. Ainda precisa de migration e de um job agendado.
 
 ## Decisões já tomadas (não re-discutir)
 
@@ -51,7 +95,7 @@ iniciado.
 
 ---
 
-## v0.9 — Fundação (em aberto)
+## v0.9 — Fundação — ENTREGUE (2026-08-27)
 
 Estimativa: ~5 a 7 dias de trabalho focado. Nada aqui aparece na tela, e é
 justamente por isso que vem primeiro: as demais versões dependem desta camada.
@@ -101,8 +145,8 @@ justamente por isso que vem primeiro: as demais versões dependem desta camada.
       `calculos.ts` do frontend continua no ar até o cutover da tela — por ora
       as duas implementações coexistem de propósito.
 - [x] Manter a suíte verde e aplicar as migrations em dev / test / CI / Neon.
-      Hoje: **180 no backend** (66 unitários + 114 e2e) e 134 no frontend, todos
-      verdes. Migrations aplicadas em dev, test, CI e **Neon** (2026-08-26), e o
+      Ao fechar a v0.9: **180 no backend** (66 unitários + 114 e2e) e 134 no
+      frontend, todos verdes. Migrations aplicadas em dev, test, CI e **Neon** (2026-08-26), e o
       backfill rodado em produção: 11 sessões criadas a partir de 19 `TimeEntry`,
       todas vinculadas ao grupo, nenhuma `OPEN`. Rodar de novo é seguro
       (idempotência confirmada no próprio Neon).
