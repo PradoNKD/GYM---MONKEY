@@ -233,6 +233,23 @@ describe('Sessions API (e2e)', () => {
   });
 
   describe('PATCH /sessions/:id (correcao auditada)', () => {
+    // Cenario do relato: a pessoa iniciou e finalizou quase na hora. Inicio 5h
+    // atras pra que +4h ainda caia no passado (senao a regra de futuro barra
+    // primeiro e o teste passaria pelo motivo errado).
+    async function sessaoDeUmMinuto(userId: string) {
+      const inicio = new Date(Date.now() - 5 * 60 * 60000);
+      return prisma.workoutSession.create({
+        data: {
+          userId,
+          startedAt: inicio,
+          endedAt: new Date(inicio.getTime() + 60000),
+          durationMin: 1,
+          status: SessionStatus.SHORT,
+          dayKey: '2026-08-26',
+        },
+      });
+    }
+
     async function sessaoFechada(userId: string, horasAtras = 3) {
       const inicio = new Date(Date.now() - horasAtras * 60 * 60000);
       return prisma.workoutSession.create({
@@ -250,7 +267,9 @@ describe('Sessions API (e2e)', () => {
     it('corrige o fim, reclassifica e grava a auditoria', async () => {
       const { user, token } = await novoUsuario();
       const s = await sessaoFechada(user.id);
-      const fimNovo = new Date(s.startedAt.getTime() + 90 * 60000);
+      // 10 -> 65 min: +55, dentro do teto de aumento de 60 min. O que este
+      // teste cobre e a reclassificacao SHORT -> COMPLETED e a auditoria.
+      const fimNovo = new Date(s.startedAt.getTime() + 65 * 60000);
 
       const r = await request(server)
         .patch(`/sessions/${s.id}`)
@@ -259,7 +278,7 @@ describe('Sessions API (e2e)', () => {
         .expect(200);
 
       // De SHORT (10 min) pra COMPLETED (90 min): a correcao passa pelas regras.
-      expect(r.body).toMatchObject({ status: 'COMPLETED', durationMin: 90, contavel: true });
+      expect(r.body).toMatchObject({ status: 'COMPLETED', durationMin: 65, contavel: true });
 
       const auditoria = await prisma.sessionCorrection.findMany({ where: { sessionId: s.id } });
       expect(auditoria).toHaveLength(1);
@@ -364,20 +383,36 @@ describe('Sessions API (e2e)', () => {
         expect(JSON.stringify(r.body)).toContain('6h do inicio');
       });
 
-      it('aceita o fim dentro da janela, atravessando a meia-noite', async () => {
+      it('aceita o fim atravessando a meia-noite', async () => {
         // A janela e de 6h em vez de "tem de ser no mesmo dia" justamente por
-        // isto: quem treina 23:30 e termina 00:30 atravessa a meia-noite.
+        // isto: quem treina 23:30 e termina 00:30 atravessa a meia-noite, e uma
+        // regra de mesmo-dia barraria esse caso real.
         const { user, token } = await novoUsuario();
-        const s = await sessaoFechada(user.id, 24);
+        const inicio = new Date(Date.UTC(2026, 7, 20, 23, 30)); // passado fixo
+        const s = await prisma.workoutSession.create({
+          data: {
+            userId: user.id,
+            startedAt: inicio,
+            endedAt: new Date(inicio.getTime() + 60000),
+            durationMin: 1,
+            status: SessionStatus.SHORT,
+            dayKey: '2026-08-20',
+          },
+        });
+        criados.push(user.id);
 
-        await request(server)
+        const r = await request(server)
           .patch(`/sessions/${s.id}`)
           .set('Authorization', `Bearer ${token}`)
           .send({
-            endedAt: new Date(s.startedAt.getTime() + 5 * 60 * 60000).toISOString(),
+            // 00:30 do dia seguinte: outro dia civil, 59 min de aumento.
+            endedAt: new Date(Date.UTC(2026, 7, 21, 0, 30)).toISOString(),
             reason: 'Esqueci de finalizar',
           })
           .expect(200);
+
+        expect(r.body.durationMin).toBe(60);
+        expect(r.body.status).toBe('COMPLETED');
       });
 
       it('a janela de 6h vale para o supervisor tambem', async () => {
@@ -437,6 +472,152 @@ describe('Sessions API (e2e)', () => {
 
         const auditoria = await prisma.sessionCorrection.findMany({ where: { sessionId: s.id } });
         expect(auditoria).toHaveLength(2);
+      });
+
+      it('o caso relatado em producao: 1 min NAO vira 4h contaveis', async () => {
+        // Relatado em 2026-08-27: um usuario comum iniciou um treino e "colocou
+        // 4h pra frente". A janela de 6h nao pegava, porque 4h cabe nela -- e
+        // 4h e justamente o teto de duracao contavel. Medido antes da trava:
+        // sessao de 1 min virou 240 min contaveis, semana de 0 pra 240.
+        const { user, token } = await novoUsuario();
+        const s = await sessaoDeUmMinuto(user.id);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 4 * 60 * 60000).toISOString(),
+            reason: 'esqueci de finalizar',
+          })
+          .expect(400);
+
+        expect(JSON.stringify(r.body)).toContain('no maximo 60 min');
+
+        const depois = await prisma.workoutSession.findUniqueOrThrow({ where: { id: s.id } });
+        expect(depois.durationMin).toBe(1);
+        expect(depois.status).toBe(SessionStatus.SHORT);
+      });
+
+      it('mas aumentar dentro de 1h continua funcionando', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoDeUmMinuto(user.id);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 55 * 60000).toISOString(),
+            reason: 'esqueci de finalizar',
+          })
+          .expect(200);
+
+        expect(r.body).toMatchObject({ status: 'COMPLETED', durationMin: 55, contavel: true });
+      });
+
+      it('reduzir e livre: nao ha teto pra diminuir', async () => {
+        // Reduzir nao infla numero nenhum, entao nao precisa de limite.
+        const { user, token } = await novoUsuario();
+        const inicio = new Date(Date.now() - 5 * 60 * 60000);
+        const s = await prisma.workoutSession.create({
+          data: {
+            userId: user.id,
+            startedAt: inicio,
+            endedAt: new Date(inicio.getTime() + 240 * 60000),
+            durationMin: 240,
+            status: SessionStatus.COMPLETED,
+            dayKey: '2026-08-26',
+          },
+        });
+        criados.push(user.id);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(inicio.getTime() + 30 * 60000).toISOString(),
+            reason: 'tinha esquecido de finalizar antes',
+          })
+          .expect(200);
+
+        expect(r.body.durationMin).toBe(30);
+      });
+
+      it('AUTO_CLOSED nao vira 4h de graca: as 6h gravadas sao teto, nao medida', async () => {
+        // O buraco sutil: em AUTO_CLOSED o durationMin gravado e o teto de 6h.
+        // Se ele fosse a base do aumento, corrigir de 360 pra 360 seria "aumento
+        // zero" e entregaria uma sessao contavel de 4h a quem nunca tocou em
+        // finalizar. A base tem de ser zero.
+        const { user, token } = await novoUsuario();
+        const inicio = new Date(Date.now() - 8 * 60 * 60000);
+        const s = await prisma.workoutSession.create({
+          data: {
+            userId: user.id,
+            startedAt: inicio,
+            endedAt: new Date(inicio.getTime() + 360 * 60000),
+            durationMin: 360,
+            status: SessionStatus.AUTO_CLOSED,
+            dayKey: '2026-08-26',
+          },
+        });
+        criados.push(user.id);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(inicio.getTime() + 300 * 60000).toISOString(),
+            reason: 'esqueci de finalizar',
+          })
+          .expect(400);
+
+        expect(JSON.stringify(r.body)).toContain('no maximo 60 min');
+      });
+
+      it('mede o aumento na duracao BRUTA, nao na truncada', async () => {
+        // Sutil: `classificar` trunca em 240 min. Se o aumento fosse medido na
+        // duracao ja truncada, esticar uma sessao de 200 min pra 300 daria um
+        // "aumento" de 40 e passaria -- quando o aumento real e de 100.
+        const { user, token } = await novoUsuario();
+        const inicio = new Date(Date.now() - 8 * 60 * 60000);
+        const s = await prisma.workoutSession.create({
+          data: {
+            userId: user.id,
+            startedAt: inicio,
+            endedAt: new Date(inicio.getTime() + 200 * 60000),
+            durationMin: 200,
+            status: SessionStatus.COMPLETED,
+            dayKey: '2026-08-26',
+          },
+        });
+        criados.push(user.id);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(inicio.getTime() + 300 * 60000).toISOString(),
+            reason: 'esqueci de finalizar',
+          })
+          .expect(400);
+
+        expect(JSON.stringify(r.body)).toContain('no maximo 60 min');
+      });
+
+      it('supervisor nao tem esse teto', async () => {
+        const { user } = await novoUsuario();
+        const s = await sessaoDeUmMinuto(user.id);
+        const sup = await novoUsuario(Role.SUPERVISOR);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${sup.token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 4 * 60 * 60000).toISOString(),
+            reason: 'Confirmado com a pessoa',
+          })
+          .expect(200);
+
+        expect(r.body.durationMin).toBe(240);
       });
 
       it('a listagem diz se o treino ainda e corrigivel', async () => {

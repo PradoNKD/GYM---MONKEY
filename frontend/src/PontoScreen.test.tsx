@@ -421,6 +421,88 @@ describe("PontoScreen (sessoes)", () => {
       expect(await screen.findByText(/treino no futuro/)).toBeInTheDocument();
     });
 
+    it("confirma na tela que deu certo, dizendo o resultado", async () => {
+      // Antes nao havia retorno nenhum: a pessoa corrigia e ficava sem saber se
+      // funcionou.
+      vi.mocked(corrigirSessao).mockResolvedValue(
+        sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 55, contavel: true }),
+      );
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Esqueci");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "Treino corrigido: 55min, contando na semana.",
+      );
+      // E o formulario fecha.
+      expect(screen.getByRole("button", { name: "Corrigir treino" })).toBeInTheDocument();
+    });
+
+    it("avisa quando a correcao foi aceita mas o treino continua nao contando", async () => {
+      vi.mocked(corrigirSessao).mockResolvedValue(
+        sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 5, status: "SHORT", contavel: false }),
+      );
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Ajuste");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(/nao conta na semana/);
+    });
+
+    it("mostra o erro DENTRO do formulario e mantem o que foi digitado", async () => {
+      // O erro ia pro topo do card, que em celular costuma estar fora da tela
+      // quando se esta digitando -- parecia que nada tinha acontecido.
+      vi.mocked(corrigirSessao).mockRejectedValue(
+        new ApiError("O fim tem de estar dentro de 6h do inicio do treino"),
+      );
+      await abrirFormulario();
+
+      const campoMotivo = screen.getByPlaceholderText(/esqueci de finalizar/i);
+      await userEvent.type(campoMotivo, "Motivo que quero manter");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
+
+      const alerta = await screen.findByRole("alert");
+      expect(alerta).toHaveTextContent("dentro de 6h do inicio");
+
+      // O formulario continua aberto, com o motivo preservado.
+      expect(screen.getByPlaceholderText(/esqueci de finalizar/i)).toHaveValue(
+        "Motivo que quero manter",
+      );
+      expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
+    });
+
+    it("mostra 'Salvando...' enquanto a correcao esta em voo", async () => {
+      let liberar: (s: Sessao) => void = () => {};
+      vi.mocked(corrigirSessao).mockImplementation(
+        () => new Promise<Sessao>((resolve) => { liberar = resolve; }),
+      );
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Esqueci");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
+
+      const botao = screen.getByRole("button", { name: "Salvar correcao" });
+      expect(botao).toHaveTextContent("Salvando...");
+      expect(botao).toBeDisabled();
+      // Os campos tambem travam, pra nao editar no meio do envio.
+      expect(screen.getByPlaceholderText(/esqueci de finalizar/i)).toBeDisabled();
+
+      liberar(sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 55, contavel: true }));
+      await screen.findByRole("status");
+    });
+
+    it("erro de rede (sem ApiError) tem mensagem propria", async () => {
+      vi.mocked(corrigirSessao).mockRejectedValue(new TypeError("Failed to fetch"));
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByPlaceholderText(/esqueci de finalizar/i), "Esqueci");
+      await userEvent.click(screen.getByRole("button", { name: "Salvar correcao" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/conexao/i);
+    });
+
     it("cancelar fecha o formulario sem enviar nada", async () => {
       await abrirFormulario();
 

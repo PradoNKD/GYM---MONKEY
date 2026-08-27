@@ -7,6 +7,7 @@ import {
   isoParaDatetimeLocal,
   motivoDeNaoContar,
   rotuloDoDia,
+  mensagemDeSucesso,
   temFimConfiavel,
 } from "./calculos";
 import type { Sessao, StatusSessao } from "./types";
@@ -312,5 +313,34 @@ describe("rotuloDoDia", () => {
     const chaveDeHoje = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
 
     expect(rotuloDoDia(dataDaChave(chaveDeHoje))).toBe("Hoje");
+  });
+});
+
+describe("mensagemDeSucesso", () => {
+  it("diz a duracao e que passou a contar", () => {
+    const msg = mensagemDeSucesso(
+      sessao({ dayKey: "2026-08-26", durationMin: 55, contavel: true }),
+      20,
+    );
+
+    expect(msg).toBe("Treino corrigido: 55min, contando na semana.");
+  });
+
+  it("avisa quando a correcao foi aceita mas o treino continua nao contando", () => {
+    // O caso que fazia parecer bug: corrigir pra 5 min e aceito pelo servidor,
+    // e o numero da semana nao mexe. Sem esta frase, "sucesso" mente.
+    const msg = mensagemDeSucesso(
+      sessao({
+        dayKey: "2026-08-26",
+        durationMin: 5,
+        status: "SHORT",
+        contavel: false,
+      }),
+      20,
+    );
+
+    expect(msg).toContain("5min");
+    expect(msg).toContain("nao conta na semana");
+    expect(msg).toContain("20min");
   });
 });

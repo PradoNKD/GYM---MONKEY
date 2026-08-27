@@ -12,6 +12,15 @@ export const DURACAO_MAX_MIN = 4 * 60;
 export const AUTO_FECHAMENTO_MIN = 6 * 60;
 /** Intervalo obrigatorio entre o fim de um treino e o inicio do proximo. */
 export const COOLDOWN_MIN = 30;
+/**
+ * Quanto uma correcao pode AUMENTAR a duracao, para usuario comum.
+ *
+ * Reduzir e livre: reduzir nao infla numero nenhum. Aumentar e a unica direcao
+ * abusavel -- foi assim que um treino de 1 minuto virou 240 minutos contaveis
+ * (relatado em producao em 2026-08-27). Esquecer de tocar em "finalizar" por
+ * ate uma hora e comum; reivindicar +4h nao e correcao, e reescrita.
+ */
+export const AUMENTO_MAX_CORRECAO_MIN = 60;
 
 export type Classificacao = { status: SessionStatus; durationMin: number };
 
@@ -44,4 +53,21 @@ export function cooldownRestante(ultimoFim: Date | null, agora: Date): number {
 
   const passados = Math.floor((agora.getTime() - ultimoFim.getTime()) / 60000);
   return Math.max(0, COOLDOWN_MIN - passados);
+}
+
+/**
+ * Duracao que serve de base pra medir o aumento de uma correcao.
+ *
+ * Em AUTO_CLOSED o `durationMin` gravado e o TETO de auto-encerramento, nao uma
+ * medida: a pessoa nunca tocou em "finalizar", entao nao existe evidencia
+ * nenhuma de quanto ela treinou. Usar esse numero como base seria um buraco --
+ * corrigir de 360 pra 360 e "aumento zero" e entregaria uma sessao contavel de
+ * 4 horas de graca. Sem evidencia, a base e zero.
+ */
+export function baseParaAumento(sessao: {
+  status: SessionStatus;
+  durationMin: number | null;
+}): number {
+  if (sessao.status === SessionStatus.AUTO_CLOSED) return 0;
+  return sessao.durationMin ?? 0;
 }

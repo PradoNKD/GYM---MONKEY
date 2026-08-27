@@ -139,3 +139,21 @@ export function motivoDeNaoContar(sessao: Sessao, duracaoMinimaMin: number): str
 
   return `Abaixo de ${duracaoMinimaMin} min: nao conta na semana`;
 }
+
+/**
+ * O que dizer depois de uma correcao aceita.
+ *
+ * Nao basta "salvo". Corrigir para 5 minutos e aceito pelo servidor e a sessao
+ * continua nao contando na semana -- se a tela so dissesse "sucesso", a pessoa
+ * olharia o numero da semana parado e concluiria que o app esta errado. A
+ * confirmacao diz o resultado, nao so que a escrita funcionou.
+ */
+export function mensagemDeSucesso(sessao: Sessao, duracaoMinimaMin: number): string {
+  const duracao = descricaoDaDuracao(sessao);
+
+  if (sessao.contavel) {
+    return `Treino corrigido: ${duracao}, contando na semana.`;
+  }
+
+  return `Treino corrigido: ${duracao}. Abaixo de ${duracaoMinimaMin}min, entao nao conta na semana.`;
+}

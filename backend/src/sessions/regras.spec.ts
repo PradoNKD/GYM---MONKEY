@@ -1,5 +1,6 @@
 import { SessionStatus } from '@prisma/client';
 import {
+  baseParaAumento,
   classificar,
   cooldownRestante,
   DURACAO_MAX_MIN,
@@ -78,5 +79,26 @@ describe('regras de integridade da sessao', () => {
     it('muito tempo depois segue liberado (nao fica negativo)', () => {
       expect(cooldownRestante(new Date('2026-08-25T08:00:00Z'), agora)).toBe(0);
     });
+  });
+});
+
+describe('baseParaAumento', () => {
+  it('usa a duracao gravada quando ela e uma medida real', () => {
+    expect(
+      baseParaAumento({ status: SessionStatus.COMPLETED, durationMin: 45 }),
+    ).toBe(45);
+    expect(baseParaAumento({ status: SessionStatus.SHORT, durationMin: 3 })).toBe(3);
+  });
+
+  it('trata AUTO_CLOSED como base ZERO, porque 6h ali e teto e nao medida', () => {
+    // Sem isto, corrigir de 360 pra 360 seria "aumento zero" e entregaria uma
+    // sessao contavel de 4 horas de graca a quem nunca tocou em finalizar.
+    expect(
+      baseParaAumento({ status: SessionStatus.AUTO_CLOSED, durationMin: 360 }),
+    ).toBe(0);
+  });
+
+  it('base zero quando nao ha duracao gravada', () => {
+    expect(baseParaAumento({ status: SessionStatus.OPEN, durationMin: null })).toBe(0);
   });
 });

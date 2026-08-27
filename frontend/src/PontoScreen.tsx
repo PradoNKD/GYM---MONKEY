@@ -19,6 +19,7 @@ import {
   formatarHorario,
   formatarMinutos,
   isoParaDatetimeLocal,
+  mensagemDeSucesso,
   motivoDeNaoContar,
   rotuloDoDia,
   temFimConfiavel,
@@ -43,6 +44,11 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const [fimEdicao, setFimEdicao] = useState("");
   const [motivoEdicao, setMotivoEdicao] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // Erro da correcao fica separado do erro geral: ele aparece DENTRO do
+  // formulario, junto dos campos. Antes ia pro topo do card, longe do lugar
+  // onde a pessoa estava digitando -- em celular, muitas vezes fora da tela.
+  const [erroCorrecao, setErroCorrecao] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!token) return;
@@ -61,6 +67,14 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     void carregar();
   }, [carregar]);
 
+  // A confirmacao some sozinha: aviso de sucesso que fica pra sempre na tela
+  // vira ruido e, pior, faz duvidar se e da acao de agora ou da anterior.
+  useEffect(() => {
+    if (!sucesso) return;
+    const t = setTimeout(() => setSucesso(null), 6000);
+    return () => clearTimeout(t);
+  }, [sucesso]);
+
   const resumo = pagina?.resumo;
   const emAndamento = resumo?.emAndamento ?? null;
   const duracaoMinima = resumo?.regras.duracaoMinimaMin ?? 20;
@@ -72,6 +86,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   async function alternar() {
     if (!token) return;
     setErro(null);
+    setSucesso(null);
     setEnviando(true);
 
     try {
@@ -109,6 +124,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
 
   function iniciarCorrecao(sessao: Sessao) {
     setErro(null);
+    setErroCorrecao(null);
+    setSucesso(null);
     setEditandoId(sessao.id);
     setFimEdicao(sessao.endedAt ? isoParaDatetimeLocal(sessao.endedAt) : "");
     setMotivoEdicao("");
@@ -117,18 +134,28 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   async function salvarCorrecao(id: string) {
     if (!token || !fimEdicao || motivoEdicao.trim().length < 3) return;
     setSalvando(true);
-    setErro(null);
+    setErroCorrecao(null);
+    setSucesso(null);
 
     try {
-      await corrigirSessao(token, id, {
+      const corrigida = await corrigirSessao(token, id, {
         endedAt: new Date(fimEdicao).toISOString(),
         reason: motivoEdicao.trim(),
       });
-      setEditandoId(null);
+
+      // Recarrega ANTES de fechar o formulario: assim o "Salvando..." fica na
+      // tela até os números novos chegarem, em vez de a lista velha aparecer
+      // por um instante como se nada tivesse acontecido.
       await carregar();
+      setEditandoId(null);
+      setSucesso(mensagemDeSucesso(corrigida, duracaoMinima));
     } catch (error) {
-      setErro(
-        error instanceof ApiError ? error.message : "Nao foi possivel corrigir o treino",
+      // O formulario FICA ABERTO com o que foi digitado: o erro quase sempre é
+      // sobre o horário escolhido, e fechar obrigaria a redigitar tudo.
+      setErroCorrecao(
+        error instanceof ApiError
+          ? error.message
+          : "Nao foi possivel corrigir o treino. Verifique a conexao e tente de novo.",
       );
     } finally {
       setSalvando(false);
@@ -159,15 +186,23 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
             disabled={salvando}
           />
         </label>
+        {erroCorrecao && (
+          <p className="sessao-edicao-erro" role="alert">
+            <TriangleAlert size={13} />
+            {erroCorrecao}
+          </p>
+        )}
+
         <span className="sessao-edicao-acoes">
           <button
             type="button"
-            className="icon-btn"
+            className="btn-mini btn-mini--ok"
             onClick={() => salvarCorrecao(sessao.id)}
             disabled={salvando || !fimEdicao || motivoEdicao.trim().length < 3}
             aria-label="Salvar correcao"
           >
-            <Check size={16} />
+            <Check size={14} />
+            {salvando ? "Salvando..." : "Salvar"}
           </button>
           <button
             type="button"
@@ -277,6 +312,12 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
       </div>
 
       {erro && <p className="auth-erro">{erro}</p>}
+      {sucesso && (
+        <p className="aviso-sucesso" role="status">
+          <Check size={14} />
+          {sucesso}
+        </p>
+      )}
 
       <button
         type="button"

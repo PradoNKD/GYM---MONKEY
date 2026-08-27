@@ -7,7 +7,9 @@ import {
 import { SessionSource, SessionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  AUMENTO_MAX_CORRECAO_MIN,
   AUTO_FECHAMENTO_MIN,
+  baseParaAumento,
   classificar,
   cooldownRestante,
   DURACAO_MIN_MIN,
@@ -384,9 +386,28 @@ export class SessionsService {
       );
     }
 
+    const duracaoBruta = minutosEntre(inicioNovo, fimNovo);
+
+    // 4. A correcao pode REDUZIR a duracao a vontade, mas so pode AUMENTAR em
+    //    ate AUMENTO_MAX_CORRECAO_MIN. Reduzir nao infla nada; aumentar e a
+    //    unica direcao abusavel -- e a janela de 6h nao bastava, porque 4h cabe
+    //    dentro dela e 4h e exatamente o teto de duracao contavel. Foi assim
+    //    que um treino de 1 minuto virou 240 minutos contaveis em producao.
+    //
+    //    Comparado na duracao BRUTA, nao na classificada: senao esticar pra
+    //    500 minutos passaria, porque `classificar` truncaria em 240.
+    if (!ehSupervisor) {
+      const aumento = duracaoBruta - baseParaAumento(sessao);
+      if (aumento > AUMENTO_MAX_CORRECAO_MIN) {
+        throw new BadRequestException(
+          `A correcao pode aumentar o treino em no maximo ${AUMENTO_MAX_CORRECAO_MIN} min. Para mais que isso, peca a um supervisor.`,
+        );
+      }
+    }
+
     // A correcao passa pelas MESMAS regras de duracao: senao seria o caminho
     // facil pra burlar a duracao minima e o teto.
-    const { status, durationMin } = classificar(minutosEntre(inicioNovo, fimNovo));
+    const { status, durationMin } = classificar(duracaoBruta);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.sessionCorrection.create({

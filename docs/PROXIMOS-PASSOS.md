@@ -173,6 +173,50 @@ mesmo-dia barraria justo esse caso. Sem a janela, pôr o fim dias depois fazia a
 duração ser truncada no teto de 4h e a sessão virar `COMPLETED` — qualquer toque
 de 1 segundo virava treino contável de 4 horas.
 
+#### Quarta trava: teto de aumento (2026-08-27, relatado em produção)
+
+As três acima **não bastaram**, e quem achou foi o Flávio, usando o app: ele
+iniciou um treino e pôs o fim 4h à frente. Reproduzido: sessão de **1 min → 240
+min contáveis**, semana de 0 para 240 min.
+
+O motivo de a janela de 6h não pegar: **4h cabe dentro de 6h**, e 4h é exatamente
+o `DURACAO_MAX_MIN`. O abuso vivia na folga entre as duas regras — eu tinha
+fechado o teto e o piso, e deixado o meio aberto.
+
+A trava: a correção pode **reduzir a duração à vontade**, mas só pode
+**aumentá-la em até 60 min** (`AUMENTO_MAX_CORRECAO_MIN`) para usuário comum.
+Reduzir não infla número nenhum; aumentar é a única direção abusável. Supervisor
+não tem teto.
+
+Dois detalhes que só apareceram implementando:
+
+- **O aumento é medido na duração bruta, não na classificada.** `classificar`
+  trunca em 240 min, então medir na duração já truncada deixaria esticar uma
+  sessão de 200 min para 300 (aumento real de 100) parecendo aumento de 40.
+- **Em `AUTO_CLOSED` a base é zero, não o `durationMin` gravado.** Ali os 360 min
+  são o *teto* de auto-encerramento, não uma medida: a pessoa nunca tocou em
+  finalizar. Se fossem a base, corrigir de 360 para 360 seria "aumento zero" e
+  entregaria uma sessão contável de 4h de graça.
+
+Medido depois, usuário comum com sessão de 1 min: **+4h → 400**, **+2h → 400**,
+**+55min → 200** (55 min, contável). Semana ficou 55 min em vez de 240.
+
+#### Retorno na tela (mesmo relato)
+
+A correção não dava nenhum sinal de que funcionou, e o erro aparecia no topo do
+card — em celular, muitas vezes fora da tela de quem estava digitando. Agora:
+
+- O **erro aparece dentro do formulário**, e o formulário **fica aberto** com o
+  que foi digitado (o erro quase sempre é sobre o horário escolhido; fechar
+  obrigaria a redigitar).
+- O botão mostra **"Salvando..."** e os campos travam durante o envio. O
+  recarregamento acontece **antes** de fechar o formulário, senão a lista velha
+  aparecia por um instante como se nada tivesse ocorrido.
+- **Confirmação que diz o resultado**, não só "salvo": corrigir para 5 min é
+  aceito e a sessão continua não contando — sem essa frase, a pessoa olharia o
+  número da semana parado e concluiria que o app errou. A mensagem some sozinha
+  depois de alguns segundos.
+
 A resposta da API passou a trazer **`corrigivel`** por sessão, na mesma ideia do
 `contavel`: a tela esconde o lápis sem reimplementar a regra.
 
@@ -192,7 +236,8 @@ Sem esta camada, toda gamificação premia quem toca no botão duas vezes.
 |---|---|---|
 | `DURACAO_MIN` | 20 min | Sessão menor entra no histórico como "sessão curta" e **não** conta para meta, streak, pontos ou placar |
 | `DURACAO_MAX` | 4 h | Sessão maior é **truncada** nos minutos e ainda conta como 1 treino (protege quem esqueceu o check-out) |
-| Auto-encerramento | 6 h | Sessão aberta há mais de 6h fecha como `AUTO_FECHADA` e não é contável. Uma correção manual por mês, sujeita ao supervisor |
+| Auto-encerramento | 6 h | Sessão aberta há mais de 6h fecha como `AUTO_FECHADA` e não é contável |
+| Aumento máximo na correção | 60 min | Reduzir é livre; aumentar além disso exige supervisor |
 | Treinos contáveis por dia | 1 | Havendo várias sessões válidas no mesmo dia, conta a mais longa; a soma de minutos do dia continua sendo exibida |
 | Cooldown | 30 min | Novo check-in só é aceito 30 min após o último check-out |
 
