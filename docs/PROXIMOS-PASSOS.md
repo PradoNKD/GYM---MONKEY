@@ -387,12 +387,30 @@ de verificar a aprovação.
    afeta os números** (sessões são outra tabela — streak e semana conferidos
    intactos), mas destrói a trilha de `TimeEntry` que o backfill preservou de
    propósito, e é a única porta que ainda aceita horário do cliente sem exigir
-   motivo. **A fazer.**
+   motivo.
+
+   **Corrigido**: `/time-entries` ficou **somente leitura**. `POST /toggle`,
+   `PATCH /:id` e `DELETE /:id` foram removidos — 404 para qualquer um,
+   inclusive supervisor (não é permissão, a rota não existe). O `GET` continua,
+   porque a pessoa tem direito de ver os próprios dados e o histórico antigo é
+   auditoria. Há uma trava de regressão no teste unitário: o `TimeEntriesService`
+   só pode expor `findAllForUser` — reintroduzir escrita ali quebra a suíte.
 2. **Enumeração de e-mail no cadastro**: o 409 revela quem tem conta. Fica para
    a **v1.2**, quando entra verificação por e-mail e o fluxo muda de todo jeito.
-3. **Rate limit do login por IP pode trancar o grupo**: são 5/min por IP e na
-   academia todos saem pelo mesmo IP, então três pessoas errando a senha juntas
-   travam as outras. **A fazer.**
+3. **Rate limit do login por IP podia trancar o grupo**: eram 5/min por IP e na
+   academia todos saem pelo mesmo IP, então quem errasse a senha travava o login
+   dos outros — rate limit virando negação de serviço contra o próprio grupo.
+
+   **Corrigido**: o login passou a contar por **(IP + e-mail)**, num throttler
+   `por-conta` que só vale nas rotas marcadas com `@LimitePorConta()`. O teto
+   por IP continua existindo (o throttler `default`, 30/min nesta rota), então um
+   único IP não pode rodar e-mails diferentes à vontade. O e-mail é normalizado
+   como no `AuthService`, senão alternar maiúsculas daria cota nova a cada
+   variação.
+
+   Medido depois da mudança, duas contas do mesmo IP: Ana errando 7x →
+   `401, 401, 401, 401, 401, 429, 429`; Bruno, no mesmo IP, → `401` (passou).
+   Ana com o e-mail em caixa alta → `429` (sem cota nova).
 4. **Rotar a senha do Neon** — pendência do dono (ela passou por chat).
 
 ## Roadmap resumido (v1.0 → v2.x)
