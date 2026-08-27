@@ -201,6 +201,46 @@ Dois detalhes que só apareceram implementando:
 Medido depois, usuário comum com sessão de 1 min: **+4h → 400**, **+2h → 400**,
 **+55min → 200** (55 min, contável). Semana ficou 55 min em vez de 240.
 
+#### Como consertar o que já passou
+
+A trava impede correções novas — **não desfaz** a que já foi feita. Para isso há
+`npm run reverter-correcao`, no mesmo padrão do `set-role` e do `backfill`
+(lógica em `src/sessions/reverter-correcao.ts`, testada; o script é só a casca).
+
+O valor original **não precisa ser adivinhado**: a linha de `SessionCorrection`
+guarda o `startedAtBefore` / `endedAtBefore` / `statusBefore`. É exatamente para
+isto que a auditoria existe.
+
+```bash
+cd backend
+npm run reverter-correcao -- --listar                 # o que foi corrigido, atual vs original
+npm run reverter-correcao -- <sessionId>              # SIMULA
+npm run reverter-correcao -- <sessionId> --confirmar  # aplica
+```
+
+Em produção: `DATABASE_URL` apontando pro Neon. **Simula por padrão** — escrita
+exige `--confirmar`, como o backfill.
+
+A reversão **entra na trilha** como uma correção nova, em vez de apagar o que
+houve: a auditoria é somente-append, então desfazer também deixa rastro. Senão o
+histórico passaria a mentir na direção oposta.
+
+Dois cuidados que os testes cobrem:
+
+- **`AUTO_CLOSED` não vira `COMPLETED` de 4h na volta.** Ali os 360 min gravados
+  são o teto do auto-encerramento; passá-los por `classificar` devolveria 240 min
+  contáveis — a reversão criaria um treino que nunca existiu.
+- **Reverte para a PRIMEIRA correção**, não a última: as seguintes partem de um
+  valor já corrigido.
+
+Ensaiado ponta a ponta no ambiente de dev, com o estado corrompido criado pela
+API real (linha de auditoria genuína): sessão de 240 min → 1 min `SHORT`, semana
+de 240 min → 0, e a trilha ficou com as duas linhas, nada apagado.
+
+> Depois da reversão a sessão fica com duas correções, então o dono **não** pode
+> mais corrigi-la (é uma por sessão). Se a pessoa realmente treinou, quem ajusta
+> é o supervisor, que não tem esse limite.
+
 #### Retorno na tela (mesmo relato)
 
 A correção não dava nenhum sinal de que funcionou, e o erro aparecia no topo do
