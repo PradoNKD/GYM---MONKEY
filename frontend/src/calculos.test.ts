@@ -29,6 +29,7 @@ function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
     source: over.source ?? "APP",
     dayKey: over.dayKey,
     contavel: over.contavel ?? status === "COMPLETED",
+    corrigivel: over.corrigivel ?? status !== "OPEN",
   };
 }
 

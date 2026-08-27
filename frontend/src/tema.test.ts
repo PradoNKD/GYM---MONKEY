@@ -1,6 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { aplicarTema, lerTemaSalvo, resolverTema, useTema, useTemaEscuroFixo } from "./tema";
+import {
+  aplicarTema,
+  escolhaPara,
+  lerTemaSalvo,
+  resolverTema,
+  useTema,
+  useTemaEscuroFixo,
+} from "./tema";
 
 /**
  * matchMedia controlavel: o jsdom devolve sempre `matches: false`, e boa parte
@@ -113,24 +120,52 @@ describe("tema", () => {
   });
 
   describe("useTema", () => {
-    it("cicla sistema -> claro -> escuro -> sistema e persiste cada passo", () => {
+    it("com aparelho no claro: alterna pro escuro e volta pro automatico", () => {
+      // Dois estados, nao tres. Voltar pro tema que o aparelho ja pede apaga a
+      // escolha -- e o que faz um botao de dois estados nunca trancar ninguem
+      // fora do automatico.
+      mockarSistema(false);
       const { result } = renderHook(() => useTema());
-      expect(result.current.tema).toBe("sistema");
+      expect(result.current.efetivo).toBe("claro");
 
       act(() => result.current.alternar());
-      expect(result.current.tema).toBe("claro");
-      expect(localStorage.getItem("gym-monkey.tema")).toBe("claro");
-      expect(document.documentElement.dataset.tema).toBe("claro");
-
-      act(() => result.current.alternar());
+      expect(result.current.efetivo).toBe("escuro");
       expect(result.current.tema).toBe("escuro");
-      expect(localStorage.getItem("gym-monkey.tema")).toBe("escuro");
       expect(document.documentElement.dataset.tema).toBe("escuro");
 
       act(() => result.current.alternar());
+      expect(result.current.efetivo).toBe("claro");
       expect(result.current.tema).toBe("sistema");
-      expect(localStorage.getItem("gym-monkey.tema")).toBe("sistema");
       expect(document.documentElement.dataset.tema).toBeUndefined();
+    });
+
+    it("com aparelho no escuro: alterna pro claro e volta pro automatico", () => {
+      mockarSistema(true);
+      const { result } = renderHook(() => useTema());
+      expect(result.current.efetivo).toBe("escuro");
+
+      act(() => result.current.alternar());
+      expect(result.current.efetivo).toBe("claro");
+      expect(result.current.tema).toBe("claro");
+
+      act(() => result.current.alternar());
+      expect(result.current.efetivo).toBe("escuro");
+      expect(result.current.tema).toBe("sistema");
+      expect(document.documentElement.dataset.tema).toBeUndefined();
+    });
+
+    it("depois de voltar ao automatico, volta a acompanhar o aparelho", () => {
+      // O ponto de apagar a escolha: se gravassemos "claro" ali, o app ficaria
+      // preso no claro quando o celular virasse escuro sozinho.
+      const sistema = mockarSistema(false);
+      const { result } = renderHook(() => useTema());
+
+      act(() => result.current.alternar()); // -> escuro (escolha explicita)
+      act(() => result.current.alternar()); // -> claro, que e o do sistema: apaga
+
+      act(() => sistema.trocarPara(true));
+
+      expect(result.current.efetivo).toBe("escuro");
     });
 
     it("comeca do tema salvo, nao do padrao", () => {
@@ -172,6 +207,21 @@ describe("tema", () => {
       unmount();
 
       expect(sistema.ouvintesAtivos()).toBe(0);
+    });
+  });
+
+  describe("escolhaPara", () => {
+    it("grava a escolha quando ela difere do aparelho", () => {
+      mockarSistema(false);
+      expect(escolhaPara("escuro")).toBe("escuro");
+    });
+
+    it("grava 'sistema' quando a escolha coincide com o aparelho", () => {
+      mockarSistema(false);
+      expect(escolhaPara("claro")).toBe("sistema");
+
+      mockarSistema(true);
+      expect(escolhaPara("escuro")).toBe("sistema");
     });
   });
 

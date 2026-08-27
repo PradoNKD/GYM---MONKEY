@@ -233,8 +233,8 @@ describe('Sessions API (e2e)', () => {
   });
 
   describe('PATCH /sessions/:id (correcao auditada)', () => {
-    async function sessaoFechada(userId: string) {
-      const inicio = new Date(Date.now() - 3 * 60 * 60000);
+    async function sessaoFechada(userId: string, horasAtras = 3) {
+      const inicio = new Date(Date.now() - horasAtras * 60 * 60000);
       return prisma.workoutSession.create({
         data: {
           userId,
@@ -285,6 +285,185 @@ describe('Sessions API (e2e)', () => {
         .expect(200);
 
       expect(r.body).toMatchObject({ status: 'SHORT', contavel: false });
+    });
+
+    describe('travas contra reescrita de historico', () => {
+      // Antes destas, a correcao era o caminho pra FABRICAR treino. Medido no
+      // ambiente de dev: uma sessao de 3 minutos de hoje reescrita como 62
+      // minutos num dia do passado levou a streak de 1 pra 3 e a semana de 2
+      // pra 3 treinos, com duas correcoes na mesma sessao. A auditoria
+      // registrava tudo e nao impedia nada.
+
+      it('usuario comum nao pode mexer no inicio (e o inicio que define o DIA)', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+        const outroDia = new Date(s.startedAt.getTime() - 9 * 24 * 60 * 60000);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            startedAt: outroDia.toISOString(),
+            endedAt: new Date(outroDia.getTime() + 62 * 60000).toISOString(),
+            reason: 'Esqueci de finalizar',
+          })
+          .expect(400);
+
+        // E o dia da sessao continua onde estava.
+        const depois = await prisma.workoutSession.findUniqueOrThrow({ where: { id: s.id } });
+        expect(depois.dayKey).toBe(s.dayKey);
+        expect(depois.startedAt.toISOString()).toBe(s.startedAt.toISOString());
+      });
+
+      it('uma correcao por sessao: a segunda e recusada', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 60 * 60000).toISOString(),
+            reason: 'Esqueci de finalizar',
+          })
+          .expect(200);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 90 * 60000).toISOString(),
+            reason: 'Mudei de ideia',
+          })
+          .expect(400);
+
+        const auditoria = await prisma.sessionCorrection.findMany({ where: { sessionId: s.id } });
+        expect(auditoria).toHaveLength(1);
+      });
+
+      it('o fim nao pode ir alem da janela de 6h do inicio', async () => {
+        // Sem esta trava, por o fim dias depois fazia a duracao ser truncada no
+        // teto de 4h e a sessao virar COMPLETED: qualquer toque de 1 segundo
+        // virava treino contavel de 4 horas.
+        const { user, token } = await novoUsuario();
+        // 24h atras de proposito: com a sessao de 3h atras, inicio+7h cairia no
+        // FUTURO e quem rejeitaria seria a regra de futuro -- o teste passaria
+        // sem a janela existir. Foi assim que ele passou numa mutacao.
+        const s = await sessaoFechada(user.id, 24);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 7 * 60 * 60000).toISOString(),
+            reason: 'Esqueci de finalizar',
+          })
+          .expect(400);
+
+        // Confere QUAL regra barrou, nao so que barrou.
+        expect(JSON.stringify(r.body)).toContain('6h do inicio');
+      });
+
+      it('aceita o fim dentro da janela, atravessando a meia-noite', async () => {
+        // A janela e de 6h em vez de "tem de ser no mesmo dia" justamente por
+        // isto: quem treina 23:30 e termina 00:30 atravessa a meia-noite.
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id, 24);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 5 * 60 * 60000).toISOString(),
+            reason: 'Esqueci de finalizar',
+          })
+          .expect(200);
+      });
+
+      it('a janela de 6h vale para o supervisor tambem', async () => {
+        const { user } = await novoUsuario();
+        const s = await sessaoFechada(user.id, 24);
+        const sup = await novoUsuario(Role.SUPERVISOR);
+
+        const r = await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${sup.token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 7 * 60 * 60000).toISOString(),
+            reason: 'Ajustando',
+          })
+          .expect(400);
+
+        expect(JSON.stringify(r.body)).toContain('6h do inicio');
+      });
+
+      it('supervisor PODE mexer no inicio, e fica auditado', async () => {
+        const { user } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+        const sup = await novoUsuario(Role.SUPERVISOR);
+        const inicioNovo = new Date(s.startedAt.getTime() - 60 * 60000);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${sup.token}`)
+          .send({
+            startedAt: inicioNovo.toISOString(),
+            endedAt: new Date(inicioNovo.getTime() + 60 * 60000).toISOString(),
+            reason: 'Corrigindo a pedido da pessoa',
+          })
+          .expect(200);
+
+        const auditoria = await prisma.sessionCorrection.findMany({ where: { sessionId: s.id } });
+        expect(auditoria).toHaveLength(1);
+        expect(auditoria[0].authorId).toBe(sup.user.id);
+        expect(auditoria[0].startedAtBefore?.toISOString()).toBe(s.startedAt.toISOString());
+      });
+
+      it('o supervisor nao fica preso ao limite de uma correcao', async () => {
+        const { user } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+        const sup = await novoUsuario(Role.SUPERVISOR);
+
+        for (const minutos of [60, 90]) {
+          await request(server)
+            .patch(`/sessions/${s.id}`)
+            .set('Authorization', `Bearer ${sup.token}`)
+            .send({
+              endedAt: new Date(s.startedAt.getTime() + minutos * 60000).toISOString(),
+              reason: `Ajuste para ${minutos} min`,
+            })
+            .expect(200);
+        }
+
+        const auditoria = await prisma.sessionCorrection.findMany({ where: { sessionId: s.id } });
+        expect(auditoria).toHaveLength(2);
+      });
+
+      it('a listagem diz se o treino ainda e corrigivel', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        const antes = await request(server)
+          .get('/sessions')
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+        expect(antes.body.itens.find((i: any) => i.id === s.id).corrigivel).toBe(true);
+
+        await request(server)
+          .patch(`/sessions/${s.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            endedAt: new Date(s.startedAt.getTime() + 60 * 60000).toISOString(),
+            reason: 'Esqueci de finalizar',
+          })
+          .expect(200);
+
+        const depois = await request(server)
+          .get('/sessions')
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+        expect(depois.body.itens.find((i: any) => i.id === s.id).corrigivel).toBe(false);
+      });
     });
 
     it('exige motivo', async () => {

@@ -131,8 +131,8 @@ Dois cuidados que só apareceram ao olhar a tela renderizada, ambos sobre
 finalizado"** em vez de "6h", e o **horário de fim não é exibido** — mostrar
 "18:00 - 00:00" sugeriria treino até meia-noite.
 
-Ainda em aberto (anotado, fora da v0.9): o teto de **uma correção manual por
-mês** não é aplicado — hoje não há limite de correções.
+O teto de correções foi resolvido em 2026-08-27, junto com a trava de datas —
+ver "Correção de treino" abaixo.
 **Os números da semana caem para quem inflou.** Medido em produção antes de
    rodar o backfill (simulação) e confirmado depois, com resultado idêntico:
 
@@ -144,6 +144,45 @@ mês** não é aplicado — hoje não há limite de correções.
 
    **Ninguém perdeu streak** — todas já estavam em 0. O que cai são contagens
    que nunca corresponderam a treino de verdade.
+
+### Correção de treino (revisto em 2026-08-27)
+
+A auditoria de segurança olhou de novo a correção e achou o furo mais grave até
+agora: a correção era o caminho para **fabricar treino**. Medido no ambiente de
+dev, com um usuário comum:
+
+| Passo | Efeito |
+|---|---|
+| Sessão de **3 min** de hoje, reescrita como 62 min num dia 9 dias atrás | virou `COMPLETED`, contável, e o `dayKey` **mudou** |
+| Segunda correção na mesma sessão, movendo para ontem | **streak foi de 1 para 3**; semana de 2 para 3 treinos, 107 → 169 min |
+
+A auditoria registrava as duas correções fielmente. E não impedia nada — o que
+mostra a diferença entre *rastrear* e *restringir*.
+
+Três travas, todas com o caso legítimo ("esqueci de finalizar") preservado:
+
+| Trava | Usuário comum | Supervisor |
+|---|---|---|
+| **O início não se mexe** — é o único dado de onde sai o `dayKey`, ou seja, em que dia o treino conta | `startedAt` recusado (400) | pode, auditado |
+| **Uma correção por sessão** — o golpe precisou de duas | 2ª recusada (400) | sem limite |
+| **O fim cabe na janela de 6h do início** | vale | **vale também** |
+
+A janela de 6h substitui a ideia de "tem de ser no mesmo dia" de propósito: quem
+treina 23:30 e termina 00:30 atravessa a meia-noite legitimamente, e uma regra de
+mesmo-dia barraria justo esse caso. Sem a janela, pôr o fim dias depois fazia a
+duração ser truncada no teto de 4h e a sessão virar `COMPLETED` — qualquer toque
+de 1 segundo virava treino contável de 4 horas.
+
+A resposta da API passou a trazer **`corrigivel`** por sessão, na mesma ideia do
+`contavel`: a tela esconde o lápis sem reimplementar a regra.
+
+Medido depois, com usuário comum: mover o dia → 400; fim +10h → 400; **fim +55min
+→ 200** (`COMPLETED`, 55 min, contável); segunda correção → 400. O `dayKey` ficou
+onde estava.
+
+> Cuidado ao testar: uma conta **supervisor** pode mexer no início por decisão de
+> projeto. Testar a trava com conta de supervisor dá falso negativo — foi o que
+> aconteceu na primeira tentativa de validação.
 
 ### Regras de integridade da sessão
 

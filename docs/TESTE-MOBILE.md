@@ -114,19 +114,24 @@ quando o app foi instalado.
 
 ## Tema claro/escuro
 
-Três estados, no botão ao lado do nome GYM MONKEY: **automático → claro →
-escuro**. "Automático" lê a preferência do sistema (`prefers-color-scheme`) e
-**continua** lendo: se o aparelho virar escuro sozinho no fim do dia, o app
-acompanha.
+**Dois** estados no botão ao lado do nome GYM MONKEY: ele mostra o ícone do tema
+que o toque vai aplicar.
+
+Não existe um terceiro estado "automático" na tela, e não precisa. Seguir o
+celular (`prefers-color-scheme`) é o comportamento de **quem nunca tocou no
+botão** — ninguém escolhe isso, é o ponto de partida. E o botão só grava uma
+escolha quando ela **difere** do aparelho: voltar para o tema que o celular já
+pede apaga a escolha e devolve o automático. Assim um botão de dois estados
+nunca tranca ninguém fora do modo automático.
 
 Como está montado:
 
 - A paleta são **tokens CSS** no `index.css` (`--fundo`, `--texto`, `--marca`…).
   Nenhuma regra do `App.css` escreve cor crua. Trocar de tema é redefinir os
   tokens, não duplicar regra de layout.
-- Em "automático" o `<html>` fica **sem** `data-tema`, de propósito: assim quem
-  decide é o `@media (prefers-color-scheme: dark)`, que o navegador reavalia
-  sozinho. Gravar o tema resolvido ali prenderia o app no claro.
+- Sem escolha explícita, o `<html>` fica **sem** `data-tema`, de propósito: assim
+  quem decide é o `@media (prefers-color-scheme: dark)`, que o navegador reavalia
+  sozinho. Gravar o tema resolvido ali prenderia o app num tema.
 - O tema é aplicado no `main.tsx`, **antes** do React montar — a tela de login
   já abre no tema certo e não pisca claro antes de escurecer.
 - A **tela de login é escura sempre** (vai receber um fundo com o logo). Ela usa

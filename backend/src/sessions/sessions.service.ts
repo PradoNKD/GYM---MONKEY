@@ -234,7 +234,7 @@ export class SessionsService {
     status: SessionStatus;
     source: SessionSource;
     dayKey: string;
-  }) {
+  }, jaCorrigida = false) {
     return {
       id: sessao.id,
       startedAt: sessao.startedAt,
@@ -246,6 +246,10 @@ export class SessionsService {
       // Deixa explicito na resposta se a sessao entra nas contas, pra a tela
       // nao ter de reimplementar a regra.
       contavel: ehContabil(sessao.status),
+      // Mesma ideia pro lapis de correcao: a tela nao precisa saber que sao
+      // "uma correcao por sessao" e "nao corrige treino em andamento" -- ela
+      // so esconde o botao quando isto vem false. Assim a regra mora num lugar.
+      corrigivel: sessao.status !== SessionStatus.OPEN && !jaCorrigida,
     };
   }
 
@@ -262,13 +266,16 @@ export class SessionsService {
       orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
       take: limite + 1, // 1 extra so pra saber se existe proxima pagina
       ...(opcoes.cursor ? { cursor: { id: opcoes.cursor }, skip: 1 } : {}),
+      // Conta as correcoes na mesma consulta: e o que diz a tela se o lapis
+      // ainda deve aparecer (uma correcao por sessao).
+      include: { _count: { select: { corrections: true } } },
     });
 
     const temMais = encontradas.length > limite;
     const itens = temMais ? encontradas.slice(0, limite) : encontradas;
 
     return {
-      itens: itens.map((s) => this.paraResposta(s)),
+      itens: itens.map((s) => this.paraResposta(s, s._count.corrections > 0)),
       proximoCursor: temMais ? itens[itens.length - 1].id : null,
     };
   }
@@ -315,6 +322,37 @@ export class SessionsService {
       );
     }
 
+    // ---- Travas contra reescrita de historico (auditoria de 2026-08-27) ----
+    //
+    // Antes destas, a correcao era o caminho pra FABRICAR treino: dava pra
+    // pegar uma sessao de 3 minutos de hoje e reescrever como 62 minutos num
+    // dia qualquer do passado. Medido: streak foi de 1 pra 3 e a semana de 2
+    // pra 3 treinos, usando duas correcoes na mesma sessao. A auditoria
+    // registrava tudo -- e nao impedia nada.
+
+    // 1. O inicio nao se mexe. Ele e o unico dado de onde sai o `dayKey`, ou
+    //    seja, EM QUE DIA o treino conta. Corrigir "esqueci de finalizar" nunca
+    //    precisa mexer no inicio -- o inicio foi o servidor que gravou, na hora
+    //    em que a pessoa apertou o botao. O supervisor pode, e fica auditado.
+    if (!ehSupervisor && dados.startedAt !== undefined) {
+      throw new BadRequestException(
+        'So o horario de fim pode ser corrigido. Para mudar o inicio, peca a um supervisor.',
+      );
+    }
+
+    // 2. Uma correcao por sessao. O golpe medido precisou de duas: a primeira
+    //    tornava a sessao contavel, a segunda a movia pro dia que interessava.
+    if (!ehSupervisor) {
+      const jaCorrigidas = await this.prisma.sessionCorrection.count({
+        where: { sessionId: sessao.id },
+      });
+      if (jaCorrigidas > 0) {
+        throw new BadRequestException(
+          'Este treino ja foi corrigido uma vez. Peca a um supervisor.',
+        );
+      }
+    }
+
     const inicioNovo = dados.startedAt ? new Date(dados.startedAt) : sessao.startedAt;
     const fimNovo = dados.endedAt ? new Date(dados.endedAt) : sessao.endedAt;
 
@@ -329,6 +367,21 @@ export class SessionsService {
     }
     if (fimNovo.getTime() > this.agora().getTime()) {
       throw new BadRequestException('Nao da pra registrar treino no futuro');
+    }
+
+    // 3. O fim tem de caber na janela de auto-encerramento (6h) contada do
+    //    inicio. Sem isso, o fim podia ser posto dias depois: a duracao era
+    //    truncada no teto de 4h e a sessao virava COMPLETED, o que transformava
+    //    qualquer toque de 1 segundo num treino contavel de 4 horas.
+    //
+    //    Usar a janela em vez de "tem de ser no mesmo dia" e de proposito: quem
+    //    treina 23:30 e termina 00:30 atravessa a meia-noite legitimamente, e
+    //    uma regra de mesmo-dia barraria justo esse caso. Vale pra todos,
+    //    supervisor incluido -- sessao de tres dias nao existe pra ninguem.
+    if (minutosEntre(inicioNovo, fimNovo) > AUTO_FECHAMENTO_MIN) {
+      throw new BadRequestException(
+        `O fim tem de estar dentro de ${AUTO_FECHAMENTO_MIN / 60}h do inicio do treino`,
+      );
     }
 
     // A correcao passa pelas MESMAS regras de duracao: senao seria o caminho
@@ -362,7 +415,8 @@ export class SessionsService {
         },
       });
 
-      return this.paraResposta(atualizada);
+      // A sessao acabou de gastar a correcao: nao e mais corrigivel pelo dono.
+      return this.paraResposta(atualizada, true);
     });
   }
 

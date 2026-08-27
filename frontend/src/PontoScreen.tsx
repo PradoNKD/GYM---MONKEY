@@ -148,7 +148,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           />
         </label>
         <label className="sessao-campo">
-          Motivo da correcao
+          Motivo da correcao (uma correcao por treino)
           <input
             type="text"
             placeholder="Ex.: esqueci de finalizar"
@@ -187,7 +187,6 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     if (editandoId === sessao.id) return renderCorrecao(sessao);
 
     const aviso = motivoDeNaoContar(sessao, duracaoMinima);
-    const podeCorrigir = sessao.status !== "OPEN";
 
     return (
       <li
@@ -207,7 +206,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           )}
         </span>
         <span className="sessao-duracao">{descricaoDaDuracao(sessao)}</span>
-        {podeCorrigir && (
+        {sessao.corrigivel && (
           <button
             type="button"
             className="icon-btn"

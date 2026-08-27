@@ -1,22 +1,19 @@
-import { Moon, Sun, SunMoon } from "lucide-react";
-import { NOME_DO_TEMA, PROXIMO_TEMA, useTema, type Tema } from "./tema";
-
-const ICONE: Record<Tema, typeof SunMoon> = {
-  sistema: SunMoon,
-  claro: Sun,
-  escuro: Moon,
-};
+import { Moon, Sun } from "lucide-react";
+import { NOME_DO_TEMA, oposto, useTema } from "./tema";
 
 /**
- * Um botao que cicla sistema -> claro -> escuro -> sistema.
+ * Um botao de dois estados: mostra o icone do tema que o toque vai aplicar.
  *
- * O rotulo diz o estado atual **e** o proximo, porque so o icone nao explica
- * um ciclo de tres: "sol e lua" nao e obviamente "automatico".
+ * Nao existe um terceiro estado "automatico" na tela, e nao precisa: seguir o
+ * celular e o comportamento de quem nunca tocou no botao, e voltar pro tema que
+ * o aparelho ja pede apaga a escolha e devolve o automatico. Ver tema.ts.
  */
 export function BotaoTema() {
-  const { tema, alternar } = useTema();
-  const Icone = ICONE[tema];
-  const rotulo = `Tema ${NOME_DO_TEMA[tema]}. Trocar para ${NOME_DO_TEMA[PROXIMO_TEMA[tema]]}`;
+  const { efetivo, alternar } = useTema();
+
+  const alvo = oposto(efetivo);
+  const Icone = alvo === "escuro" ? Moon : Sun;
+  const rotulo = `Mudar para o tema ${NOME_DO_TEMA[alvo]}`;
 
   return (
     <button

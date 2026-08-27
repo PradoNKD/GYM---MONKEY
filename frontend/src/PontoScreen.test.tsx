@@ -40,6 +40,7 @@ function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
     source: "APP",
     dayKey: over.dayKey,
     contavel: over.contavel ?? status === "COMPLETED",
+    corrigivel: over.corrigivel ?? status !== "OPEN",
   };
 }
 
@@ -289,6 +290,35 @@ describe("PontoScreen (sessoes)", () => {
 
       expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
     });
+
+    it("esconde o lapis quando o treino ja gastou a sua correcao", async () => {
+      // Sao uma correcao por treino, e quem diz se ainda cabe e o servidor
+      // (campo `corrigivel`) -- a tela nao reimplementa a regra.
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 60, corrigivel: false })],
+        }),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByText("1h 0min");
+
+      expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
+    });
+
+    it("mostra o lapis enquanto o treino ainda e corrigivel", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 60, corrigivel: true })],
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(
+        await screen.findByRole("button", { name: "Corrigir treino" }),
+      ).toBeInTheDocument();
+    });
   });
 
   describe("paginacao", () => {
@@ -432,18 +462,20 @@ describe("PontoScreen (sessoes)", () => {
       expect(sair).not.toHaveTextContent("Souza");
     });
 
-    it("o botao de tema cicla sistema -> claro -> escuro e persiste", async () => {
+    it("o botao de tema alterna entre claro e escuro", async () => {
+      // Sao dois estados na tela: o botao mostra o tema que o toque aplica.
       render(<PontoScreen />);
       await screen.findByText("Fora do treino");
 
-      await userEvent.click(screen.getByRole("button", { name: /^Tema automatico/ }));
-      expect(localStorage.getItem("gym-monkey.tema")).toBe("claro");
-
-      await userEvent.click(screen.getByRole("button", { name: /^Tema claro/ }));
-      expect(localStorage.getItem("gym-monkey.tema")).toBe("escuro");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Mudar para o tema escuro" }),
+      );
       expect(document.documentElement.dataset.tema).toBe("escuro");
 
-      expect(screen.getByRole("button", { name: /^Tema escuro/ })).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Mudar para o tema claro" }),
+      );
+      expect(document.documentElement.dataset.tema).toBeUndefined();
     });
   });
 

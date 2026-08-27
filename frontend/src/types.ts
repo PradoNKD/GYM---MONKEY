@@ -54,6 +54,12 @@ export interface Sessao {
   dayKey: string;
   /** Se entra nas contagens. Vem pronto pra tela nao reimplementar a regra. */
   contavel: boolean;
+  /**
+   * Se o lapis de correcao deve aparecer. Falso em treino em andamento e em
+   * treino que ja gastou a sua correcao (sao uma por sessao). Tambem vem do
+   * servidor: e a mesma regra que ele aplica no PATCH.
+   */
+  corrigivel: boolean;
 }
 
 export interface ResumoSessoes {

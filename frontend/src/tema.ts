@@ -3,10 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 /**
  * Tema claro/escuro.
  *
- * Sao tres estados, nao dois. "sistema" existe porque o celular ja tem essa
- * preferencia configurada (e ela muda sozinha ao anoitecer, em quem usa o
- * modo automatico do iOS/Android); "claro" e "escuro" existem porque quem
- * treina de madrugada quer escuro independente do que o sistema diz.
+ * O botao tem DOIS estados. "sistema" existe no tipo, mas nao e uma opcao que
+ * alguem escolhe: e a **ausencia de escolha**, e o estado em que todo mundo
+ * comeca. Quem nunca tocou no botao segue a preferencia do celular, e continua
+ * seguindo quando ela muda sozinha ao anoitecer.
+ *
+ * O botao so grava uma escolha quando ela **difere** do celular. Se voce voltar
+ * pro tema que o aparelho ja pede, a escolha e apagada e o app volta a seguir o
+ * sistema -- entao nao existe como ficar preso num tema por engano.
  */
 export type Tema = "sistema" | "claro" | "escuro";
 
@@ -15,19 +19,27 @@ export type TemaEfetivo = "claro" | "escuro";
 
 const CHAVE = "gym-monkey.tema";
 
-/** Ordem do ciclo do botao. */
-export const PROXIMO_TEMA: Record<Tema, Tema> = {
-  sistema: "claro",
-  claro: "escuro",
-  escuro: "sistema",
-};
-
 /** Como o tema e chamado para o usuario (rotulo do botao e leitor de tela). */
-export const NOME_DO_TEMA: Record<Tema, string> = {
-  sistema: "automatico",
+export const NOME_DO_TEMA: Record<TemaEfetivo, string> = {
   claro: "claro",
   escuro: "escuro",
 };
+
+export function oposto(tema: TemaEfetivo): TemaEfetivo {
+  return tema === "claro" ? "escuro" : "claro";
+}
+
+/**
+ * O que gravar para a tela ficar no tema `desejado`.
+ *
+ * Se o desejado for o mesmo que o celular ja pede, gravamos "sistema" em vez do
+ * tema: a escolha explicita deixa de existir e o app volta a acompanhar o
+ * aparelho. E o que faz o botao de dois estados nunca trancar ninguem fora do
+ * automatico -- sem precisar de um terceiro estado na tela.
+ */
+export function escolhaPara(desejado: TemaEfetivo): Tema {
+  return desejado === preferenciaDoSistema() ? "sistema" : desejado;
+}
 
 /**
  * Cor da barra de status do sistema (Android) / da barra do Safari.
@@ -153,7 +165,7 @@ export function useTema() {
 
   const alternar = useCallback(() => {
     setTema((atual) => {
-      const proximo = PROXIMO_TEMA[atual];
+      const proximo = escolhaPara(oposto(resolverTema(atual)));
       salvarTema(proximo);
       return proximo;
     });
