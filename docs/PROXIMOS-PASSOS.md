@@ -4,7 +4,7 @@ Atividades **em aberto**. Este documento existe pelo mesmo motivo do
 [HANDOFF](HANDOFF.md): vive no repositório para que um `git clone` entregue o
 contexto inteiro, sem depender de histórico de chat.
 
-Última atualização: 2026-08-26.
+Última atualização: 2026-08-27.
 
 Origem: análise de mercado de apps de academia (apps globais, mercado
 brasileiro e evidência de gamificação) cruzada com auditoria do código.
@@ -245,22 +245,27 @@ Anotados a pedido do dono do produto, **sem implementar agora**. Cada um já tem
 um lugar natural no roadmap; onde há conflito com algo já decidido, o conflito
 está explícito.
 
-### 1. Modo claro e escuro na tela de marcar treino
+### 1. Modo claro e escuro na tela de marcar treino — FEITO (2026-08-27)
 
-Hoje o app é claro e fixo (`#f4f4f2`), com o escuro `#191919` só em textos, no
-botão de finalizar e na splash do Android. O pedido é ter os dois temas na tela
-de ponto.
+Entregue antecipado da v1.1, junto com o polimento mobile. Detalhes de
+implementação e o que checar no aparelho estão em
+[TESTE-MOBILE](TESTE-MOBILE.md); o resumo:
 
-Já previsto na **v1.1** ("design system + dark mode"). O pedido só o torna
-prioritário dentro dela. Pontos de atenção quando chegar a vez:
+- Três estados no botão ao lado do nome GYM MONKEY: **automático → claro →
+  escuro**. Automático segue `prefers-color-scheme` e continua seguindo em tempo
+  real, porque em automático o `<html>` fica **sem** `data-tema` e quem decide é
+  o CSS.
+- A paleta virou **23 tokens CSS** num só lugar — meio caminho do design system
+  da v1.1 já andado.
+- A tela de login é **escura sempre** (vai receber fundo com o logo), via um
+  atributo separado que não sobrescreve a escolha do usuário.
+- `color-scheme` acompanha, então o seletor de data/hora da correção também
+  escurece.
 
-- Vale respeitar `prefers-color-scheme` **e** deixar o usuário forçar um tema —
-  quem treina de madrugada quer escuro independente do sistema.
-- O `theme_color` do manifest (hoje vermelho) pinta a barra de status e
-  precisaria acompanhar o tema.
-- A splash é escura e o app é claro; com o tema escuro a abertura fica coesa,
-  o que resolve de graça o "pulo" anotado em [TESTE-MOBILE](TESTE-MOBILE.md).
-- Fazer via tokens CSS (custom properties) já é meio caminho do design system.
+Fica **em aberto** um ponto do manifest: o `theme_color` é fixo (`#ff4d3d`) e
+manifest não aceita media query, então no app instalado a barra de status pode
+continuar vermelha no tema escuro, dependendo da versão do Chrome. A saída, se
+incomodar, é fixar `#191919` — barra escura sempre, coerente com a splash.
 
 ### 2. Segunda tela: a pessoa monta o treino dela
 
@@ -332,6 +337,63 @@ pelo cliente.
 
 Nada a decidir aqui, então: é executar a v0.9. O relato só confirma a ordem já
 escolhida.
+
+## Auditoria de segurança (2026-08-27)
+
+Levantamento pedido pelo dono do produto antes de um deploy. Cada item foi
+**verificado no código e depois atacado** no backend local, não só lido.
+
+### Já resolvido
+
+| Tema | Prova |
+|---|---|
+| Hash de senha | bcrypt, 10 rounds |
+| Rate limit | 30/min global; **5/min** em login e cadastro (8 erros seguidos → `401, 429, 429…`) |
+| Queries parametrizadas | Prisma em tudo; a única query crua é `` $queryRaw`SELECT 1` ``, literal. Zero `$queryRawUnsafe` |
+| Mass assignment | `whitelist + forbidNonWhitelisted` global. Forçar `status`, `durationMin`, `contavel`, `userId` e `source` na correção → **400 nas 5** |
+| Promoção a admin | guard de supervisor na rota; usuário comum → **403** |
+| Vazamento entre usuários | `select` explícito (sem `passwordHash`); corrigir treino alheio → **403**; conta nova vê 0 sessões |
+| Secrets no Git | varredura de **todos** os commits: `backend/.env` nunca existiu na árvore |
+
+Duas decisões que sustentam o resto: **o papel não vai no token** (o JWT carrega
+só `exp/iat/sub`; o papel é lido do banco a cada requisição, então desativar
+alguém corta o acesso na requisição seguinte, e token roubado não carrega papel
+falso — testado com `sub` trocado, assinatura falsa e `alg=none`: 401 nos três);
+e **o login não revela quais e-mails existem**, porque a senha é checada antes
+de verificar a aprovação.
+
+### Não se aplica a esta arquitetura
+
+- **Public key do banco / RLS**: vêm do modelo Supabase, onde o navegador fala
+  direto com o banco. Aqui só o backend tem `DATABASE_URL`. A "RLS" é a camada
+  de serviço, e o isolamento foi provado. RLS só ajudaria contra um backend já
+  comprometido — que teria a credencial de todo jeito.
+- **Esconder a API**: impossível num SPA (a URL vai no bundle). O que importa é
+  tudo exigir token, e só `/health` e `/auth/*` são abertos.
+- **Cookie httpOnly**: não usamos cookies. E aqui seria **pior**: front em
+  `github.io` e API em `render.com` são origens diferentes, o cookie seria de
+  terceiros (`SameSite=None`) — justo o que os navegadores estão desligando. A
+  mitigação real é não ter XSS (zero `dangerouslySetInnerHTML`/`eval`) e
+  expiração curta (12h, já em vigor).
+- **Criptografia por campo**: o Neon já faz TLS e criptografia em repouso, e o
+  roadmap proíbe guardar dado sensível. Nome e e-mail não justificam.
+
+### Achados
+
+1. **Rotas de escrita de `/time-entries` ainda no ar.** O cutover tirou da tela,
+   não da API. Com um token comum: `POST /time-entries/toggle` → 201;
+   `PATCH /time-entries/<id>` aceitou timestamp de 2020 vindo do cliente, sem
+   motivo e sem auditoria; `DELETE /time-entries/<id>` → 204, sem rastro. **Não
+   afeta os números** (sessões são outra tabela — streak e semana conferidos
+   intactos), mas destrói a trilha de `TimeEntry` que o backfill preservou de
+   propósito, e é a única porta que ainda aceita horário do cliente sem exigir
+   motivo. **A fazer.**
+2. **Enumeração de e-mail no cadastro**: o 409 revela quem tem conta. Fica para
+   a **v1.2**, quando entra verificação por e-mail e o fluxo muda de todo jeito.
+3. **Rate limit do login por IP pode trancar o grupo**: são 5/min por IP e na
+   academia todos saem pelo mesmo IP, então três pessoas errando a senha juntas
+   travam as outras. **A fazer.**
+4. **Rotar a senha do Neon** — pendência do dono (ela passou por chat).
 
 ## Roadmap resumido (v1.0 → v2.x)
 

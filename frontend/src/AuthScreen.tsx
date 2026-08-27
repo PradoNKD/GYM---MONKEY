@@ -1,8 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./AuthContext";
 import { ApiError } from "./api";
+import { useTemaEscuroFixo } from "./tema";
 
 export function AuthScreen() {
+  // A tela de entrada e escura sempre, independente do tema escolhido: e onde
+  // vai entrar o fundo com o logo do app.
+  useTemaEscuroFixo();
+
   const { login, cadastrar } = useAuth();
   const [modo, setModo] = useState<"login" | "cadastro">("login");
   const [name, setName] = useState("");

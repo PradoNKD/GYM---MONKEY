@@ -71,7 +71,25 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     // host: true -> escuta em 0.0.0.0 pra o celular na mesma rede alcancar.
-    server: modoMobile ? { host: true } : undefined,
+    //
+    // O proxy resolve dois problemas de uma vez. A pagina e servida em HTTPS
+    // (pro service worker registrar) e o backend local e HTTP: o navegador
+    // bloqueia essa mistura, entao o app nao conseguiria falar com a API pelo
+    // celular. Encaminhando por aqui, o telefone so fala HTTPS com o Vite, que
+    // repassa em HTTP no PC -- e, como fica tudo na mesma origem, nao ha CORS
+    // pra configurar. O `.env.mobile` aponta VITE_API_URL pra /api.
+    server: modoMobile
+      ? {
+          host: true,
+          proxy: {
+            '/api': {
+              target: 'http://localhost:3000',
+              changeOrigin: true,
+              rewrite: (caminho) => caminho.replace(/^\/api/, ''),
+            },
+          },
+        }
+      : undefined,
     test: {
       environment: 'jsdom',
       globals: true,

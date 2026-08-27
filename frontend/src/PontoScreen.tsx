@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { alternarTreino, ApiError, buscarSessoes, corrigirSessao } from "./api";
+import { BotaoTema } from "./BotaoTema";
 import { useAuth } from "./AuthContext";
 import {
   agruparSessoesPorDia,
@@ -23,6 +24,11 @@ import {
   temFimConfiavel,
 } from "./calculos";
 import type { PaginaSessoes, Sessao } from "./types";
+
+/** So o primeiro nome: o header do celular nao tem largura pra "Sair (Nome Sobrenome)". */
+function primeiroNome(nome: string | undefined): string {
+  return nome?.trim().split(/\s+/)[0] ?? "";
+}
 
 export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
@@ -227,6 +233,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
             height={26}
           />
           <h1>GYM MONKEY</h1>
+          <BotaoTema />
         </div>
         <div className="card-header-acoes">
           {onOpenAdmin && (
@@ -237,7 +244,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           )}
           <button type="button" className="link-btn" onClick={logout}>
             <LogOut size={14} />
-            Sair ({user?.name})
+            Sair ({primeiroNome(user?.name)})
           </button>
         </div>
       </div>

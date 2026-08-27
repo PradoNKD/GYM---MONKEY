@@ -1,10 +1,13 @@
+/* Cores vem todas de var(--...), definidas no index.css. Nao escrever cor
+   crua aqui: e o que faz o tema escuro funcionar sem duplicar regra. */
+
 .card {
   width: 100%;
   max-width: 380px;
-  background: #ffffff;
+  background: var(--superficie);
   border-radius: 24px;
   padding: 36px 28px;
-  box-shadow: 0 16px 40px rgba(20, 15, 10, 0.1);
+  box-shadow: var(--sombra);
   text-align: center;
 }
 
@@ -29,7 +32,7 @@
   font-size: 1.6rem;
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: #191919;
+  color: var(--texto);
   margin-bottom: 0;
   white-space: nowrap;
 }
@@ -51,6 +54,22 @@
   font-size: 1.3rem;
 }
 
+/* O botao de tema fica junto da marca, mas deslocado pro canto -- perto o
+   bastante pra ler como parte do titulo, longe o bastante pra nao parecer
+   que faz parte do nome. */
+.brand .icon-btn {
+  margin-left: 6px;
+}
+
+/* Header com mais de uma acao (ex.: Painel + Sair) */
+.card-header-acoes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -62,26 +81,27 @@
   width: 100%;
   padding: 14px 16px;
   font-size: 1rem;
-  border: 2px solid #ececec;
+  border: 2px solid var(--borda);
   border-radius: 14px;
   outline: none;
-  background: #fafafa;
+  background: var(--campo);
+  color: var(--texto);
 }
 
 .auth-form input:focus {
-  border-color: #ff4d3d;
-  background: #ffffff;
+  border-color: var(--marca);
+  background: var(--superficie);
 }
 
 .auth-erro {
-  color: #d6301f;
+  color: var(--perigo);
   font-size: 0.85rem;
   text-align: left;
 }
 
 .auth-aviso {
-  color: #15803d;
-  background: #dcfce7;
+  color: var(--ok-texto);
+  background: var(--ok-fundo);
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 0.85rem;
@@ -89,27 +109,36 @@
 }
 
 .auth-dica {
-  color: #6b6b68;
+  color: var(--texto-2);
   font-size: 0.75rem;
   text-align: left;
   margin-top: -6px;
 }
 
+/* min-height de 44px nos controles de toque: e o minimo que a Apple e o
+   Google recomendam pra um dedo acertar sem erro. Antes estes botoes
+   tinham 23px de altura. */
 .link-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  min-height: 44px;
   background: none;
   border: none;
-  color: #ff4d3d;
+  color: var(--marca);
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 6px;
 }
 
 .link-btn:hover {
   text-decoration: underline;
+}
+
+.link-btn:active {
+  opacity: 0.6;
 }
 
 .status {
@@ -121,12 +150,22 @@
   margin-bottom: 16px;
 }
 
+.status--out {
+  background: var(--neutro);
+  color: var(--texto-2);
+}
+
+.status--in {
+  background: var(--marca-suave);
+  color: var(--marca);
+}
+
 .resumo-semanal {
   display: flex;
   margin-bottom: 24px;
   padding: 14px 4px;
   border-radius: 16px;
-  background: #faf9f7;
+  background: var(--superficie-2);
 }
 
 .resumo-item {
@@ -138,39 +177,29 @@
 }
 
 .resumo-item + .resumo-item {
-  border-left: 1px solid #ececec;
+  border-left: 1px solid var(--borda);
 }
 
 .resumo-icone {
-  color: #6b6b68;
+  color: var(--texto-2);
 }
 
 .resumo-icone--streak {
-  color: #ff4d3d;
+  color: var(--marca);
 }
 
 .resumo-valor {
   font-family: "Anton", sans-serif;
   font-size: 1.25rem;
   font-weight: 400;
-  color: #191919;
+  color: var(--texto);
 }
 
 .resumo-label {
   font-size: 0.65rem;
-  color: #6b6b68;
+  color: var(--texto-2);
   text-align: center;
   line-height: 1.2;
-}
-
-.status--out {
-  background: #f1f1ef;
-  color: #6b6b68;
-}
-
-.status--in {
-  background: #ffe6e2;
-  color: #ff4d3d;
 }
 
 .btn {
@@ -181,6 +210,9 @@
   font-weight: 400;
   border: none;
   border-radius: 999px;
+  /* Branco cru de proposito, nao token: e texto sobre preenchimento colorido
+     (vermelho da marca), que e o mesmo nos dois temas. O botao de finalizar
+     sobrescreve isso mais abaixo, porque o fundo dele inverte. */
   color: #ffffff;
   cursor: pointer;
   text-transform: uppercase;
@@ -199,24 +231,28 @@
 }
 
 .btn--checkin {
-  background: #ff4d3d;
+  background: var(--marca);
 }
 
 .btn--checkin:hover {
-  background: #e63b2c;
+  background: var(--marca-forte);
 }
 
+/* Este botao e o contrario do fundo de proposito, pra "finalizar" nunca ser
+   confundido com "comecar". No tema escuro `--inverso` vira claro, por isso
+   o texto tambem sai de token. */
 .btn--checkout {
-  background: #191919;
+  background: var(--inverso);
+  color: var(--inverso-texto);
 }
 
 .btn--checkout:hover {
-  background: #000000;
+  background: var(--inverso-forte);
 }
 
 .secao {
   text-align: left;
-  background: #faf9f7;
+  background: var(--superficie-2);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 20px;
@@ -227,7 +263,7 @@
   font-weight: 400;
   font-size: 1rem;
   letter-spacing: 0.02em;
-  color: #191919;
+  color: var(--texto);
   margin-bottom: 8px;
 }
 
@@ -235,9 +271,13 @@
   list-style: none;
 }
 
+/* No desktop o historico rola dentro do card. No celular isso vira rolagem
+   dentro de rolagem: o dedo prende na lista e a pagina nao acompanha. La a
+   lista cresce e quem rola e a pagina (ver a media query no fim). */
 .lista-registros--historico {
-  max-height: 260px;
+  max-height: 340px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .grupo-dia + .grupo-dia {
@@ -250,21 +290,21 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #faf9f7;
+  background: var(--superficie-2);
   padding: 4px 0 6px;
   font-family: "Anton", sans-serif;
   font-weight: 400;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #6b6b68;
+  color: var(--texto-2);
 }
 
 .linha-registro {
-  padding: 10px 0;
-  border-bottom: 1px solid #ececec;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--borda);
   font-size: 0.9rem;
-  color: #444442;
+  color: var(--texto-3);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -275,105 +315,35 @@
   border-bottom: none;
 }
 
-.linha-tipo {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-}
-
-.linha-tipo.tipo--in {
-  color: #ff4d3d;
-  font-weight: 700;
-}
-
-.linha-tipo.tipo--out {
-  color: #191919;
-  font-weight: 700;
-}
-
-.linha-duracao {
-  background: #ffffff;
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin: 2px 0 8px;
-  border-bottom: none;
-}
-
-.linha-duracao .linha-tipo {
-  color: #6b6b68;
-  font-weight: 600;
-  font-size: 0.8rem;
-}
-
-.linha-duracao .historico-horario {
-  color: #ff4d3d;
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
-.historico-acoes {
-  display: flex;
-  gap: 4px;
-}
-
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: none;
   cursor: pointer;
   line-height: 1;
   padding: 4px;
-  color: #6b6b68;
-  border-radius: 6px;
+  color: var(--texto-2);
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .icon-btn:hover {
-  background: #f1f1ef;
-  color: #191919;
+  background: var(--neutro);
+  color: var(--texto);
+}
+
+.icon-btn:active:not(:disabled) {
+  background: var(--neutro);
+  transform: scale(0.92);
 }
 
 .icon-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.icon-btn--perigo {
-  color: #ff4d3d;
-}
-
-.icon-btn--perigo:hover {
-  background: #ffe6e2;
-  color: #d6301f;
-}
-
-.historico-edicao {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.historico-edicao input[type="datetime-local"] {
-  font-size: 0.8rem;
-  padding: 4px 6px;
-  border: 2px solid #ececec;
-  border-radius: 8px;
-  outline: none;
-}
-
-.historico-edicao input[type="datetime-local"]:focus {
-  border-color: #ff4d3d;
-}
-
-/* Header com mais de uma acao (ex.: Painel + Sair) */
-.card-header-acoes {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 /* --- Painel de supervisor --- */
@@ -395,7 +365,7 @@
   align-items: center;
   gap: 6px;
   font-weight: 700;
-  color: #191919;
+  color: var(--texto);
 }
 
 .admin-voce {
@@ -403,15 +373,15 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #ff4d3d;
-  background: #ffe6e2;
+  color: var(--marca);
+  background: var(--marca-suave);
   border-radius: 999px;
   padding: 1px 7px;
 }
 
 .admin-email {
   font-size: 0.78rem;
-  color: #6b6b68;
+  color: var(--texto-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -429,19 +399,24 @@
   align-items: center;
   gap: 5px;
   justify-content: center;
-  border: 1px solid #ececec;
-  background: #ffffff;
+  min-height: 44px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #191919;
+  color: var(--texto);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .btn-mini:hover:not(:disabled) {
-  border-color: #191919;
+  border-color: var(--texto);
+}
+
+.btn-mini:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn-mini:disabled {
@@ -450,19 +425,19 @@
 }
 
 .btn-mini--ok {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #ffffff;
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #ffffff; /* sobre o verde de "aprovar", nos dois temas */
 }
 
 .btn-mini--perigo {
-  color: #d6301f;
-  border-color: #f3c5be;
+  color: var(--perigo);
+  border-color: var(--perigo-borda);
 }
 
 .admin-vazio {
   font-size: 0.85rem;
-  color: #6b6b68;
+  color: var(--texto-2);
   text-align: left;
 }
 
@@ -478,11 +453,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #191919;
-  color: #ffffff;
+  background: var(--inverso);
+  color: var(--inverso-texto);
   border-radius: 16px;
   padding: 12px 14px;
-  box-shadow: 0 12px 30px rgba(20, 15, 10, 0.28);
+  box-shadow: var(--sombra-flutuante);
   z-index: 20;
 }
 
@@ -501,11 +476,11 @@
 }
 
 .install-hint-texto span {
-  color: #d4d4d2;
+  color: var(--inverso-texto-2);
 }
 
 .install-hint-texto b {
-  color: #ffffff;
+  color: var(--inverso-texto);
 }
 
 .install-hint svg {
@@ -515,17 +490,18 @@
 .install-hint-acoes {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .install-hint .icon-btn {
-  color: #d4d4d2;
+  color: var(--inverso-texto-2);
 }
 
-.install-hint .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+.install-hint .icon-btn:hover,
+.install-hint .icon-btn:active:not(:disabled) {
+  background: var(--neutro);
+  color: var(--inverso-texto);
 }
 
 /* --- Linha de sessao de treino (v0.9) --- */
@@ -544,13 +520,13 @@
 
 .sessao-horas {
   font-weight: 700;
-  color: #191919;
+  color: var(--texto);
   font-size: 0.88rem;
 }
 
 .sessao-duracao {
   font-weight: 700;
-  color: #ff4d3d;
+  color: var(--marca);
   font-size: 0.85rem;
   white-space: nowrap;
   flex-shrink: 0;
@@ -558,22 +534,20 @@
 
 /* Sessao que nao entra nas contas fica visivelmente apagada: o numero da
    semana precisa ser explicavel olhando o historico. */
-.linha-sessao--nao-conta .sessao-horas {
-  color: #6b6b68;
-  font-weight: 600;
-}
-
+.linha-sessao--nao-conta .sessao-horas,
 .linha-sessao--nao-conta .sessao-duracao {
-  color: #6b6b68;
+  color: var(--texto-2);
   font-weight: 600;
 }
 
+/* Cinza, nao amarelo: a linha inteira ja esta apagada e o texto diz o motivo
+   por extenso. O amarelo chamava mais atencao que o proprio treino. */
 .sessao-aviso {
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 0.68rem;
-  color: #a16207;
+  color: var(--texto-2);
   line-height: 1.25;
 }
 
@@ -583,6 +557,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+  padding: 10px 0;
 }
 
 .sessao-campo {
@@ -590,31 +565,46 @@
   flex-direction: column;
   gap: 3px;
   font-size: 0.7rem;
-  color: #6b6b68;
+  color: var(--texto-2);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
 }
 
 .sessao-campo input {
-  padding: 9px 10px;
+  padding: 12px 10px;
   font-size: 0.9rem;
-  border: 2px solid #ececec;
+  border: 2px solid var(--borda);
   border-radius: 10px;
   outline: none;
-  background: #ffffff;
+  background: var(--superficie);
+  color: var(--texto);
   text-transform: none;
   letter-spacing: normal;
   font-weight: 400;
-  color: #191919;
 }
 
 .sessao-campo input:focus {
-  border-color: #ff4d3d;
+  border-color: var(--marca);
 }
 
 .sessao-edicao-acoes {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* --- Celular --- */
+@media (max-width: 480px) {
+  .card {
+    padding: 24px 18px;
+  }
+
+  /* Sem teto de altura: a lista cresce e quem rola e a pagina. Assim o dedo
+     nao fica preso numa area de rolagem interna, e o titulo do dia continua
+     grudado no topo -- agora no topo da tela. */
+  .lista-registros--historico {
+    max-height: none;
+    overflow-y: visible;
+  }
 }

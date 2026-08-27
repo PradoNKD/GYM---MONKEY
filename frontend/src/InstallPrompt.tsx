@@ -8,6 +8,10 @@ import { Share, X } from "lucide-react";
 // - no Android/desktop da pra oferecer o botao nativo (beforeinstallprompt).
 const DISMISS_KEY = "gym-monkey.install-hint";
 
+// Classe posta no <body> enquanto a dica esta na tela. Ver index.css: ela
+// reserva no rodape a altura da dica.
+const CLASSE_ESPACO = "com-dica-instalacao";
+
 type PromptDeInstalacao = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -54,7 +58,20 @@ export function InstallPrompt() {
     return () => window.removeEventListener("beforeinstallprompt", capturar);
   }, []);
 
-  if (dispensado || jaEstaInstalado()) return null;
+  // Ha dica a dar quando existe prompt nativo (Android/desktop) ou quando e
+  // iOS, que nunca tem prompt. Fora disso o componente nao rende nada.
+  const visivel = !dispensado && !jaEstaInstalado() && (promptNativo !== null || ehIOS());
+
+  // A dica flutua sobre a pagina (`position: fixed`) e cobria o fim do card em
+  // tela pequena -- num iPhone SE ela tapava o botao de carregar mais treinos.
+  // Reservar o espaco no <body> resolve sem tirar a dica de flutuante.
+  useEffect(() => {
+    if (!visivel) return;
+    document.body.classList.add(CLASSE_ESPACO);
+    return () => document.body.classList.remove(CLASSE_ESPACO);
+  }, [visivel]);
+
+  if (!visivel) return null;
 
   function dispensar() {
     try {
@@ -92,28 +109,13 @@ export function InstallPrompt() {
     );
   }
 
-  if (ehIOS()) {
-    if (ehNavegadorSemInstalacaoNoIOS()) {
-      return (
-        <div className="install-hint" role="status">
-          <div className="install-hint-texto">
-            <strong>Para instalar no iPhone</strong>
-            <span>
-              Abra este site no <b>Safari</b> — só por ele dá pra adicionar à tela inicial.
-            </span>
-          </div>
-          {botaoFechar}
-        </div>
-      );
-    }
-
+  if (ehNavegadorSemInstalacaoNoIOS()) {
     return (
       <div className="install-hint" role="status">
         <div className="install-hint-texto">
-          <strong>Instale na tela inicial</strong>
+          <strong>Para instalar no iPhone</strong>
           <span>
-            Toque em Compartilhar <Share size={14} aria-label="Compartilhar" /> e depois em{" "}
-            <b>"Adicionar à Tela de Início"</b>.
+            Abra este site no <b>Safari</b> — só por ele dá pra adicionar à tela inicial.
           </span>
         </div>
         {botaoFechar}
@@ -121,5 +123,16 @@ export function InstallPrompt() {
     );
   }
 
-  return null;
+  return (
+    <div className="install-hint" role="status">
+      <div className="install-hint-texto">
+        <strong>Instale na tela inicial</strong>
+        <span>
+          Toque em Compartilhar <Share size={14} aria-label="Compartilhar" /> e depois em{" "}
+          <b>"Adicionar à Tela de Início"</b>.
+        </span>
+      </div>
+      {botaoFechar}
+    </div>
+  );
 }

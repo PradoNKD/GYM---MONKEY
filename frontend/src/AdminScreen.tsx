@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Check, ShieldCheck, User as UserIcon, X } from "lucide-react";
 import { ApiError, atualizarUsuario, listarUsuarios } from "./api";
+import { BotaoTema } from "./BotaoTema";
 import { useAuth } from "./AuthContext";
 import type { UsuarioAdmin } from "./types";
 
@@ -109,6 +110,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
           <ArrowLeft size={14} /> Voltar
         </button>
         <h1>Painel</h1>
+        <BotaoTema />
       </div>
 
       {erro && <p className="auth-erro">{erro}</p>}

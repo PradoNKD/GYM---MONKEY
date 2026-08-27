@@ -19,6 +19,17 @@ describe("AuthScreen", () => {
       .mockResolvedValue({ status: "pending_approval", message: "Conta criada! Aguarde aprovacao." });
   });
 
+  it("a tela de entrada e escura sempre, e desfaz isso ao sair", () => {
+    // Escura de proposito: e onde vai entrar o fundo com o logo do app.
+    const { unmount } = render(<AuthScreen />);
+
+    expect(document.documentElement.dataset.tela).toBe("escura");
+
+    unmount();
+
+    expect(document.documentElement.dataset.tela).toBeUndefined();
+  });
+
   describe("modo login (padrao)", () => {
     it("abre em login, sem o campo de nome", () => {
       render(<AuthScreen />);

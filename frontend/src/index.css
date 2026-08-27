@@ -6,24 +6,190 @@
   src: url("/fonts/anton-latin.woff2") format("woff2");
 }
 
+/* ===================================================================
+   Tokens de cor
+   -------------------------------------------------------------------
+   Toda a paleta vive aqui. Nenhuma regra do App.css escreve cor crua:
+   ela usa var(--algo). O tema escuro so redefine estas variaveis, sem
+   duplicar nenhuma regra de layout.
+
+   `color-scheme` nao e enfeite: e o que faz os controles nativos do
+   sistema (o seletor de data/hora da correcao, as barras de rolagem)
+   virem escuros tambem. Sem ele, o input de datetime-local abre um
+   calendario branco no meio do app escuro.
+   =================================================================== */
+:root {
+  color-scheme: light;
+
+  --fundo: #f4f4f2;
+  --superficie: #ffffff;
+  --superficie-2: #faf9f7;
+  --campo: #fafafa;
+  --borda: #ececec;
+  --neutro: #f1f1ef;
+
+  --texto: #191919;
+  --texto-2: #6b6b68;
+  --texto-3: #444442;
+
+  --marca: #ff4d3d;
+  --marca-forte: #e63b2c;
+  --marca-suave: #ffe6e2;
+
+  /* Superficie que contrasta com o resto: botao de finalizar treino e a
+     dica de instalacao. No tema escuro ela inverte (fica clara), senao
+     desapareceria no fundo. */
+  --inverso: #191919;
+  --inverso-forte: #000000;
+  --inverso-texto: #ffffff;
+  --inverso-texto-2: #d4d4d2;
+
+  --perigo: #d6301f;
+  --perigo-borda: #f3c5be;
+  --ok: #16a34a;
+  --ok-texto: #15803d;
+  --ok-fundo: #dcfce7;
+
+  --sombra: 0 16px 40px rgba(20, 15, 10, 0.1);
+  --sombra-flutuante: 0 12px 30px rgba(20, 15, 10, 0.28);
+}
+
+/* Antes do React montar nao existe `data-tema` no <html>. Este bloco faz
+   quem usa o sistema no escuro ja abrir escuro, sem piscar branco. O
+   `:not([data-tema="claro"])` e o que permite forcar o tema claro mesmo
+   com o sistema no escuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+
+    --fundo: #121212;
+    --superficie: #1c1c1c;
+    --superficie-2: #232323;
+    --campo: #161616;
+    --borda: #333331;
+    --neutro: #2a2a2a;
+
+    --texto: #f2f2f0;
+    --texto-2: #a3a39f;
+    --texto-3: #cfcfcb;
+
+    --marca: #ff6f5e;
+    --marca-forte: #ff8878;
+    --marca-suave: rgba(255, 111, 94, 0.16);
+
+    --inverso: #f2f2f0;
+    --inverso-forte: #ffffff;
+    --inverso-texto: #191919;
+    --inverso-texto-2: #4a4a48;
+
+    --perigo: #ff7a6a;
+    --perigo-borda: #6b2a22;
+    --ok: #22c55e;
+    --ok-texto: #4ade80;
+    --ok-fundo: rgba(34, 197, 94, 0.16);
+
+    --sombra: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --sombra-flutuante: 0 12px 30px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* A mesma paleta escura em dois casos: por escolha explicita do usuario, e
+   nas telas que sao escuras sempre (hoje a de login, que vai receber um fundo
+   com o logo). `data-tela` vem antes na especificidade que o `:root` puro do
+   tema claro, entao a tela de login fica escura mesmo com o tema forcado no
+   claro -- e sem apagar a escolha do usuario, que continua guardada em
+   `data-tema`.
+
+   A repeticao em relacao ao bloco do @media acima e proposital: CSS nao tem
+   como reaproveitar um bloco dentro e fora de media query, e a alternativa
+   (`light-dark()`) quebraria a tela inteira em iPhone mais antigo em vez de
+   so ignorar o tema. */
+:root[data-tema="escuro"],
+:root[data-tela="escura"] {
+  color-scheme: dark;
+
+  --fundo: #121212;
+  --superficie: #1c1c1c;
+  --superficie-2: #232323;
+  --campo: #161616;
+  --borda: #333331;
+  --neutro: #2a2a2a;
+
+  --texto: #f2f2f0;
+  --texto-2: #a3a39f;
+  --texto-3: #cfcfcb;
+
+  --marca: #ff6f5e;
+  --marca-forte: #ff8878;
+  --marca-suave: rgba(255, 111, 94, 0.16);
+
+  --inverso: #f2f2f0;
+  --inverso-forte: #ffffff;
+  --inverso-texto: #191919;
+  --inverso-texto-2: #4a4a48;
+
+  --perigo: #ff7a6a;
+  --perigo-borda: #6b2a22;
+  --ok: #22c55e;
+  --ok-texto: #4ade80;
+  --ok-fundo: rgba(34, 197, 94, 0.16);
+
+  --sombra: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --sombra-flutuante: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  height: 100%;
+html {
+  min-height: 100%;
 }
 
 body {
+  /* 100dvh em vez de 100vh: no celular a barra do navegador entra e sai, e
+     com 100vh o fim da tela fica atras dela. O 100vh acima e so o plano B
+     pra navegador antigo. */
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f4f4f2;
+  background: var(--fundo);
+  color: var(--texto);
   font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  padding: 16px;
+  /* O `viewport-fit=cover` do index.html deixa a pagina passar por baixo do
+     notch e da barra de gestos do iPhone. Sem estes env() o topo do card
+     fica escondido atras do notch. */
+  padding: calc(16px + env(safe-area-inset-top, 0px))
+    calc(16px + env(safe-area-inset-right, 0px))
+    calc(16px + env(safe-area-inset-bottom, 0px))
+    calc(16px + env(safe-area-inset-left, 0px));
+}
+
+/* A dica de instalacao e `position: fixed` e cobria o fim do card em tela
+   pequena (iPhone SE). A classe entra e sai junto com a dica, no proprio
+   InstallPrompt, e reserva a altura dela. */
+body.com-dica-instalacao {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+#root {
+  flex: 1;
+  display: flex;
+}
+
+/* O card centraliza com `margin: auto`, nao com `align-items: center`.
+   Parece a mesma coisa e nao e: com align-items, conteudo mais alto que a
+   tela e cortado no topo e nao ha como rolar ate ele. Margem automatica
+   colapsa pra zero quando falta espaco, e ai a pagina rola normal. */
+.card {
+  margin: auto;
+}
+
+/* Sem o flash azul padrao do WebKit ao tocar. O feedback fica com o
+   `:active` de cada controle, definido no App.css. */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }

@@ -88,6 +88,28 @@ describe("InstallPrompt", () => {
     expect(screen.queryByText(/Adicionar à Tela de Início/)).not.toBeInTheDocument();
   });
 
+  it("reserva espaco no rodape enquanto a dica esta na tela", async () => {
+    // A dica flutua sobre a pagina e tapava o fim do card num iPhone SE.
+    definirUA(UA_SAFARI_IOS);
+    render(<InstallPrompt />);
+
+    expect(document.body).toHaveClass("com-dica-instalacao");
+
+    await userEvent.click(screen.getByRole("button", { name: "Dispensar" }));
+
+    expect(document.body).not.toHaveClass("com-dica-instalacao");
+  });
+
+  it("nao reserva espaco quando nao ha dica a dar", () => {
+    definirUA(UA_CHROME_DESKTOP);
+    Object.defineProperty(navigator, "maxTouchPoints", { value: 0, configurable: true });
+    Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
+
+    render(<InstallPrompt />);
+
+    expect(document.body).not.toHaveClass("com-dica-instalacao");
+  });
+
   it("no Android/desktop com beforeinstallprompt, oferece o botao Instalar", () => {
     definirUA(UA_CHROME_DESKTOP);
     Object.defineProperty(navigator, "maxTouchPoints", { value: 0, configurable: true });

@@ -10,7 +10,7 @@ const logout = vi.fn();
 vi.mock("./AuthContext", () => ({
   useAuth: () => ({
     token: "tok",
-    user: { id: "u1", name: "Fulano", email: "f@x.com", role: "USER" },
+    user: { id: "u1", name: "Fulano de Souza", email: "f@x.com", role: "USER" },
     logout,
     login: vi.fn(),
     cadastrar: vi.fn(),
@@ -420,6 +420,30 @@ describe("PontoScreen (sessoes)", () => {
       await userEvent.click(await screen.findByRole("button", { name: /Sair/ }));
 
       expect(logout).toHaveBeenCalled();
+    });
+
+    it("mostra so o primeiro nome no botao sair", async () => {
+      // "Sair (Fulano de Souza)" ocupava metade da largura do header no iPhone
+      // e empurrava o Painel pra outra linha.
+      render(<PontoScreen />);
+
+      const sair = await screen.findByRole("button", { name: /Sair/ });
+      expect(sair).toHaveTextContent("Sair (Fulano)");
+      expect(sair).not.toHaveTextContent("Souza");
+    });
+
+    it("o botao de tema cicla sistema -> claro -> escuro e persiste", async () => {
+      render(<PontoScreen />);
+      await screen.findByText("Fora do treino");
+
+      await userEvent.click(screen.getByRole("button", { name: /^Tema automatico/ }));
+      expect(localStorage.getItem("gym-monkey.tema")).toBe("claro");
+
+      await userEvent.click(screen.getByRole("button", { name: /^Tema claro/ }));
+      expect(localStorage.getItem("gym-monkey.tema")).toBe("escuro");
+      expect(document.documentElement.dataset.tema).toBe("escuro");
+
+      expect(screen.getByRole("button", { name: /^Tema escuro/ })).toBeInTheDocument();
     });
   });
 
