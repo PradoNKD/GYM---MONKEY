@@ -22,6 +22,15 @@ describe('Health check (e2e)', () => {
   it('GET /health responde 200 sem exigir autenticacao', async () => {
     const response = await request(app.getHttpServer()).get('/health').expect(200);
 
-    expect(response.body).toEqual({ status: 'ok', database: 'up' });
+    expect(response.body).toMatchObject({ status: 'ok', database: 'up' });
+  });
+
+  // Fora do Render a variavel do commit nao existe, entao aqui o valor cai no
+  // fallback. O que importa e o campo existir sempre: e ele que responde "o
+  // deploy pegou?" sem precisar de conta de teste em producao.
+  it('diz qual build esta no ar', async () => {
+    const response = await request(app.getHttpServer()).get('/health').expect(200);
+
+    expect(response.body.version).toBe('desconhecida');
   });
 });
