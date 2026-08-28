@@ -18,20 +18,32 @@ App de check-in de academia: frontend (React+Vite) + backend (NestJS) +
 Postgres, com autenticação por usuário, histórico agrupado por dia,
 streak/resumo semanal, tema claro/escuro e PWA. Desde a **v0.9** a tela roda
 sobre a entidade `WorkoutSession` (`/sessions`), com correção auditada e as
-regras de integridade no servidor.
+regras de integridade no servidor. Na **v1.0** o número principal da home passou
+a ser a **meta semanal** (com streak de semanas e congelamento); a streak diária
+virou recorde histórico.
 
-**Qualidade:** 348 testes automatizados (200 no backend, 148 no frontend),
+**Qualidade:** 431 testes automatizados (262 no backend, 169 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
+
+**Qual build está no ar:** <https://gym-monkey-api.onrender.com/health> devolve
+`{"status":"ok","database":"up","version":"<sha curto>"}`. O `version` é o
+commit; `database` é um `SELECT 1` de verdade, então 503 com `"down"` significa
+API de pé sem conseguir falar com o Neon.
 
 ### O que está em aberto agora
 
 A **v0.9 — Fundação está entregue e em produção** (2026-08-27), junto com o
 tema claro/escuro, o polimento mobile, a auditoria de segurança e a trava de
-correção de datas. O próximo passo de código é a **v1.0** (meta semanal, streak
-de semanas e congelamento), com especificação pronta.
+correção de datas.
 
-Estado detalhado, pendências manuais (rotar a senha do Neon, reverter a sessão
-de 240 min) e o escopo das próximas versões vivem em
+O **núcleo da v1.0** (meta semanal, streak de semanas, congelamento, reparo e
+modo recomeço) está implementado e testado em 2026-08-28, mas **ainda não subiu
+para produção**: falta rodar a migration
+`20260828161939_meta_semanal_e_streak_de_semanas` e fazer o deploy. Não há
+backfill a rodar. O fechamento semanal é **preguiçoso, sem job agendado** — o
+porquê está no PROXIMOS-PASSOS.
+
+Estado detalhado, pendências manuais e o escopo das próximas versões vivem em
 [PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md), na seção **Estado atual — onde
 paramos**.
 

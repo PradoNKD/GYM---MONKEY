@@ -4,7 +4,7 @@ Atividades **em aberto**. Este documento existe pelo mesmo motivo do
 [HANDOFF](HANDOFF.md): vive no repositório para que um `git clone` entregue o
 contexto inteiro, sem depender de histórico de chat.
 
-Última atualização: 2026-08-27.
+Última atualização: 2026-08-28.
 
 Origem: análise de mercado de apps de academia (apps globais, mercado
 brasileiro e evidência de gamificação) cruzada com auditoria do código.
@@ -13,7 +13,65 @@ Documento visual completo:
 
 ---
 
-## Estado atual — onde paramos (2026-08-27)
+## Estado atual — onde paramos (2026-08-28)
+
+O **núcleo da v1.0 está implementado e testado localmente** — ainda **não subiu
+para produção**. O que entrou:
+
+- **Meta semanal** de 3 a 6 treinos (padrão 3), trocável pela pessoa, valendo
+  sempre **a partir da semana seguinte**.
+- **Streak de semanas** como número principal da home. A streak diária virou
+  **recorde histórico**.
+- **Congelamento**: 2 tokens acumuláveis, +1 a cada 4 semanas cumpridas
+  seguidas, aplicados automaticamente e em silêncio.
+- **Reparo**: depois de uma semana perdida, fazer `meta + 1` na seguinte
+  devolve a sequência. Um por trimestre.
+- **Modo recomeço** depois de 4 semanas sem treino, sem nenhuma cobrança.
+
+Junto entrou o **`/health` devolvendo a versão do build** (`version` com o SHA
+curto do commit): a pendência de "confirmar o que está no ar" existia porque não
+havia como saber qual build rodava, e a alternativa era criar conta de teste em
+produção — que a API não sabe apagar.
+
+Suíte: **262 no backend** (96 unitários + 166 e2e) e **169 no frontend**,
+verdes. Build e lint limpos, com o aviso antigo de `react(only-export-components)`
+em `frontend/src/AuthContext.tsx:87`.
+
+### Decisão de arquitetura: o fechamento é preguiçoso, não agendado
+
+A especificação pedia "job de fechamento na segunda 00:05". **Não existe job.**
+No plano free do Render o backend dorme depois de 15 min sem uso — 00:05 de
+segunda é justamente o horário em que ele com certeza está dormindo, então um
+cron in-process nunca dispararia. Um agendador externo resolveria, ao custo de
+mais um segredo e mais uma peça que cai calada.
+
+Em vez disso, a semana fecha **na primeira leitura depois que ela acabou**
+(`SemanasService.fecharPendentes`). As linhas são idempotentes por
+`(usuário, semana)`, então repetir não muda nada, e quem ficou um mês fora tem
+todas as semanas fechadas em ordem quando volta. Abrir o app *é* o job.
+
+Limite: reconstrói até **53 semanas** para trás. Ausência maior volta do zero —
+que é onde a regra de ausência longa levaria de qualquer forma.
+
+### O que falta da v1.0 (a linha do roadmap tem mais coisa)
+
+O que foi entregue é a especificação *Meta semanal, streak de semanas e
+congelamento*. A linha da v1.0 no roadmap resumido também lista, e **isso
+continua em aberto**: ~15 marcos curados, heatmap do ano, prêmio na quebra de
+recorde e *fresh start* no dia 1º.
+
+### Ainda não subiu
+
+Falta commitar e deixar chegar no `main`. **Não há passo manual de migration**:
+o `startCommand` do [render.yaml](../render.yaml) é
+`npm run release && npm run start:prod`, e `release` é `prisma migrate deploy`
+— toda subida aplica as migrations pendentes antes de iniciar a API. Nenhum
+backfill é necessário: a configuração de meta é criada na primeira leitura de
+cada pessoa, e as semanas passadas fecham sozinhas na primeira visita.
+
+---
+
+## Estado anterior — v0.9 (2026-08-27)
 
 App **no ar** (ver [HANDOFF](HANDOFF.md)). A **v0.9 está entregue e em
 produção**: a tela roda sobre `WorkoutSession` (`/sessions`), com `Group` +
@@ -39,30 +97,70 @@ frontend**, verdes. Build e lint limpos, com o aviso antigo de
 
 ### O que ficou pendente para a pessoa fazer (não é código)
 
-1. **Rotar a senha do Neon.** A connection string foi colada em chat e depois
-   reutilizada nos comandos de manutenção. Trocar no painel do Neon e atualizar
-   a `DATABASE_URL` do Render.
-2. **Reverter a sessão de 240 min do Flávio.** Foi um treino de teste que pegou
-   o bug do +4h. Com a `DATABASE_URL` do Neon no shell:
-   `npm run reverter-correcao -- --listar`, depois
-   `npm run reverter-correcao -- <sessionId>` (simula) e
-   `--confirmar` para aplicar. **Antes de aplicar, conferir a lista**: pode
-   haver correções legítimas de outras pessoas, e essas não devem ser
-   revertidas. Volta para o original de 1 min / `SHORT`.
-3. **Confirmar o teto de +1h em produção.** Não foi possível provar daqui: a
-   trava não vale para supervisor, e o `/health` não expõe versão. Pedir para o
-   Flávio repetir o +4h e olhar se aparece "A correcao pode aumentar o treino em
-   no maximo 60 min".
-4. **Avisar o grupo** das mudanças visíveis: tema claro/escuro, uma correção por
-   treino e só o horário de fim, e um possível erro de uma vez só em PWA com
-   cache velho.
+1. ~~**Rotar a senha do Neon.**~~ **FEITO em 2026-08-28.** A string antiga tinha
+   sido colada em chat; foi resetada no Neon e trocada no Render, com o
+   `/health` confirmando o banco de pé.
+
+   Como refazer, se um dia precisar: Neon → `Roles` → `Reset password`; depois
+   Render → `Environment` → `DATABASE_URL` → Save Changes (redeploya sozinho).
+
+   **A pegadinha que custou uma tentativa:** o Neon mostra a string no formato
+   `.env`, ou seja, a linha inteira `DATABASE_URL="postgresql://..."`. No campo
+   do Render vai **só o valor** — sem `DATABASE_URL=` e sem as aspas. Colar a
+   linha toda faz a API subir e o `/health` devolver 503 com
+   `"database":"down"`. Confira também o `?sslmode=require` no fim e prefira a
+   conexão **direct** à **pooled** (sem `-pooler` no host): o `startCommand`
+   roda `prisma migrate deploy` antes de subir, e migration por conexão pooled
+   pode falhar.
+
+   Onde ficam os passos, concretamente:
+
+   | Passo | Onde |
+   |---|---|
+   | Resetar a senha | Painel do Neon → o projeto → `Roles` → `Reset password` |
+   | Trocar no Render | [dashboard.render.com](https://dashboard.render.com) → serviço **`gym-monkey-api`** → menu da esquerda → **Environment** → editar `DATABASE_URL` → **Save Changes** (redeploya sozinho) |
+   | Conferir | Abrir <https://gym-monkey-api.onrender.com/health> no navegador |
+
+   O `/health` serve exatamente para isso porque faz um `SELECT 1` antes de
+   responder: `{"status":"ok","database":"up"}` = senha nova funcionando; **503
+   com `"database":"down"` = a API subiu mas não conecta**, quase sempre string
+   incompleta ou sem `?sslmode=require`. Demora de 30–60 s no primeiro acesso é
+   cold start do plano free, não erro. Depois, fazer login no app confirma ponta
+   a ponta (o login lê a tabela `User`).
+
+   **A senha nova não entra em chat nem em arquivo do repositório.** Migration
+   não precisa de comando manual (o Render roda no start). Para manutenção
+   pontual (`set-role`, `reverter-correcao`), exportar a variável no próprio
+   shell e rodar o comando ali. O `.env` do repositório aponta para o Postgres
+   local e deve continuar assim.
+2. ~~**Reverter a sessão de 240 min do Flávio.**~~ **Dispensado em 2026-08-28**:
+   decisão de manter, é conta de teste. A ferramenta continua disponível
+   (`npm run reverter-correcao -- --listar`, depois `-- <sessionId>` para
+   simular e `--confirmar` para aplicar) caso a decisão mude. Vale notar o
+   efeito na v1.0: como a meta conta **dias distintos com treino**, essa sessão
+   vale 1 dia como qualquer outra — os 240 min só inflam o "tempo essa semana".
+3. **Confirmar o teto de +1h em produção.** Continua em aberto, mas ficou
+   barato: **o `/health` passou a devolver o commit que está no ar**
+   (`{"status":"ok","database":"up","version":"988f64f"}`). A trava entrou em
+   `988f64f` — se a `version` for esse commit ou posterior, o código está lá, e
+   a regra tem teste no CI.
+
+   Testar o comportamento de ponta a ponta exigiria uma conta comum, e **criar
+   uma conta de teste em produção é irreversível**: `POST /auth/register` é
+   público mas nasce pendente de aprovação, e `users.controller.ts` só tem `GET`
+   e `PATCH` de `active`/`role` — **não existe rota de exclusão de usuário**.
+   Uma conta de teste ficaria para sempre na lista e apareceria no painel "quem
+   sumiu" (v1.2) e no placar (v1.3). Se quiser a prova comportamental mesmo
+   assim, o caminho limpo é pedir ao Flávio (que já é conta comum) para tentar
+   um +4h e ver se aparece "A correcao pode aumentar o treino em no maximo
+   60 min".
+4. ~~**Avisar o grupo** das mudanças visíveis.~~ **FEITO em 2026-08-28.**
+   Quando a v1.0 subir, vale um segundo aviso: a home muda de cara (a meta
+   semanal passa a ser o número principal, no lugar da streak diária).
 
 ### Próximo passo de código
 
-**v1.0 — meta semanal, streak de semanas e congelamento.** A especificação está
-pronta na seção [Meta semanal, streak de semanas e
-congelamento](#meta-semanal-streak-de-semanas-e-congelamento-v10) deste
-documento. Ainda precisa de migration e de um job agendado.
+Feito em 2026-08-28 — ver [Estado atual](#estado-atual--onde-paramos-2026-08-28).
 
 ## Decisões já tomadas (não re-discutir)
 
@@ -332,7 +430,7 @@ Sem esta camada, toda gamificação premia quem toca no botão duas vezes.
 Ficam aqui porque a decisão é sutil e errar custa caro. O resto do roadmap é
 trabalho conhecido.
 
-### Meta semanal, streak de semanas e congelamento (v1.0)
+### Meta semanal, streak de semanas e congelamento (v1.0) — ENTREGUE (2026-08-28)
 
 `semana` = ISO week, segunda 00:00 a domingo 23:59:59, **no fuso do usuário**.
 Job de fechamento na segunda 00:05, idempotente por `(user_id, iso_week)`.
@@ -369,6 +467,33 @@ senão:
 Base: 4 ou mais sessões por semana durante 6 semanas é o limiar de formação de
 hábito (Kaushal & Rhodes, *J Behav Med* 2015). Os parâmetros de congelamento
 seguem o que o Duolingo mediu em teste A/B.
+
+#### O que mudou na implementação (2026-08-28)
+
+Três decisões que a especificação não previa, tomadas ao codar:
+
+1. **Sem job agendado.** O fechamento é preguiçoso, na leitura. O motivo está
+   em [Estado atual](#estado-atual--onde-paramos-2026-08-28).
+2. **A semana é identificada pela segunda-feira** (`2026-08-24`), não pelo
+   número ISO. É a mesma semana ISO, sem os casos de borda de W53 e de ano ISO
+   diferente do ano civil.
+3. **Congelamento não é gasto quando não há streak para proteger.** Queimar um
+   token para "salvar" uma sequência de zero consumiria em silêncio o recurso
+   de quem está voltando — justo quem mais vai precisar dele. Quem tem streak 0
+   e falha a semana recebe `PERDIDA` sem perder token.
+
+Onde mora o código:
+
+| Arquivo | Papel |
+|---|---|
+| `backend/src/sessions/semanas.ts` | A máquina de estados, pura. Não conhece Prisma nem HTTP |
+| `backend/src/sessions/semanas.service.ts` | Persistência e fechamento preguiçoso |
+| `backend/src/sessions/tempo.ts` | `inicioDaSemana`, `semanasEntre` |
+| `frontend/src/MetaSemana.tsx` | O card que virou o bloco principal da home |
+
+Rotas novas: `PUT /sessions/meta` (troca a meta) e `GET /sessions/semanas`
+(semanas fechadas). O `GET /sessions` passou a devolver `resumo.meta` e
+`resumo.recordeDiario`.
 
 ### Pontos e níveis (v1.3)
 
@@ -585,7 +710,7 @@ de verificar a aprovação.
 
 | Versão | Foco | Itens principais |
 |---|---|---|
-| **v1.0** | Hábito honesto | Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, ~15 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º |
+| **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento~~, ~~recorde pessoal~~ + prêmio na quebra, ~15 marcos curados, heatmap do ano, ~~*fresh start* na segunda~~ e no dia 1º — riscado = entregue em 2026-08-28 |
 | **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + **dark mode (pedido explícito)**, onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
