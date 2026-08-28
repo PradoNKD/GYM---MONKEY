@@ -25,6 +25,10 @@ virou recorde histórico.
 **Qualidade:** 485 testes automatizados (291 no backend, 194 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
+**Validar antes de subir:** [AMBIENTE-DE-TESTE](AMBIENTE-DE-TESTE.md) levanta o
+app local com contas já preparadas (`npm run semear-teste`) nos cenários que não
+se produzem clicando — streak de semanas, congelamento gasto, reparo, recomeço.
+
 **Qual build está no ar:** <https://gym-monkey-api.onrender.com/health> devolve
 `{"status":"ok","database":"up","version":"<sha curto>"}`. O `version` é o
 commit; `database` é um `SELECT 1` de verdade, então 503 com `"down"` significa
