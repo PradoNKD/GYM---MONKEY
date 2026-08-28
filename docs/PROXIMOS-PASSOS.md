@@ -15,8 +15,7 @@ Documento visual completo:
 
 ## Estado atual — onde paramos (2026-08-28)
 
-O **núcleo da v1.0 está implementado e testado localmente** — ainda **não subiu
-para produção**. O que entrou:
+A **v1.0 está entregue e EM PRODUÇÃO** desde 2026-08-28. O que entrou:
 
 - **Meta semanal** de 3 a 6 treinos (padrão 3), trocável pela pessoa, valendo
   sempre **a partir da semana seguinte**.
@@ -60,14 +59,30 @@ congelamento*. A linha da v1.0 no roadmap resumido também lista, e **isso
 continua em aberto**: ~15 marcos curados, heatmap do ano, prêmio na quebra de
 recorde e *fresh start* no dia 1º.
 
-### Ainda não subiu
+### O deploy (2026-08-28)
 
-Falta commitar e deixar chegar no `main`. **Não há passo manual de migration**:
-o `startCommand` do [render.yaml](../render.yaml) é
-`npm run release && npm run start:prod`, e `release` é `prisma migrate deploy`
-— toda subida aplica as migrations pendentes antes de iniciar a API. Nenhum
-backfill é necessário: a configuração de meta é criada na primeira leitura de
-cada pessoa, e as semanas passadas fecham sozinhas na primeira visita.
+Commits: `096d5b1` (v1.0), `5af064c` (`/health` com versão), `68cf2c6` (docs) e
+`d66bf61` (conserto do build do Pages). Backend confirmado em
+`{"status":"ok","database":"up","version":"68cf2c6"}` e frontend no bundle
+`index-DsLHd7ox.js`.
+
+**Não houve passo manual de migration**: o `startCommand` do
+[render.yaml](../render.yaml) é `npm run release && npm run start:prod`, e
+`release` é `prisma migrate deploy`. Isso também serve de prova: como a API nova
+está servindo, o `&&` garante que o `migrate deploy` passou. Nenhum backfill foi
+necessário.
+
+**O que deu errado, e o que ensina.** O primeiro push subiu o backend e deixou o
+frontend no bundle antigo: `tsc -b` (o que o CI roda) reprovou um objeto `resumo`
+inline em `PontoScreen.test.tsx` que não tinha ganhado os campos novos. A
+checagem local havia sido feita com `npx tsc --noEmit`, que não cobre os
+arquivos de teste da mesma forma — **conferir com o comando do CI, não com um
+parecido**. Ninguém foi afetado no intervalo, porque o backend novo continua
+devolvendo `streak` e `semana`, que é tudo o que a tela antiga lê.
+
+**Sobre o `version` do `/health`:** ele mostra o último commit que chegou ao
+build do *backend*, então pode ficar atrás do `HEAD` quando o commit é só de
+frontend — foi o caso de `d66bf61`.
 
 ---
 
@@ -139,8 +154,9 @@ frontend**, verdes. Build e lint limpos, com o aviso antigo de
    simular e `--confirmar` para aplicar) caso a decisão mude. Vale notar o
    efeito na v1.0: como a meta conta **dias distintos com treino**, essa sessão
    vale 1 dia como qualquer outra — os 240 min só inflam o "tempo essa semana".
-3. **Confirmar o teto de +1h em produção.** Continua em aberto, mas ficou
-   barato: **o `/health` passou a devolver o commit que está no ar**
+3. ~~**Confirmar o teto de +1h em produção.**~~ **RESOLVIDO em 2026-08-28**: o
+   `/health` devolve `version` e o build no ar (`68cf2c6`) é muito posterior a
+   `988f64f`, o commit da trava — que tem teste no CI. Como funciona:
    (`{"status":"ok","database":"up","version":"988f64f"}`). A trava entrou em
    `988f64f` — se a `version` for esse commit ou posterior, o código está lá, e
    a regra tem teste no CI.

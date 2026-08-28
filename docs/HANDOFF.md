@@ -36,12 +36,13 @@ A **v0.9 — Fundação está entregue e em produção** (2026-08-27), junto com
 tema claro/escuro, o polimento mobile, a auditoria de segurança e a trava de
 correção de datas.
 
-O **núcleo da v1.0** (meta semanal, streak de semanas, congelamento, reparo e
-modo recomeço) está implementado e testado em 2026-08-28, mas **ainda não subiu
-para produção**: falta rodar a migration
-`20260828161939_meta_semanal_e_streak_de_semanas` e fazer o deploy. Não há
-backfill a rodar. O fechamento semanal é **preguiçoso, sem job agendado** — o
-porquê está no PROXIMOS-PASSOS.
+A **v1.0** (meta semanal, streak de semanas, congelamento, reparo e modo
+recomeço) está **entregue e em produção** desde 2026-08-28, junto com o
+`/health` que informa a versão do build. O fechamento semanal é **preguiçoso,
+sem job agendado** — o porquê está no PROXIMOS-PASSOS.
+
+O próximo passo de código é o resto da linha v1.0 (marcos, heatmap do ano,
+prêmio na quebra de recorde) ou pular para a **v1.1**.
 
 Estado detalhado, pendências manuais e o escopo das próximas versões vivem em
 [PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md), na seção **Estado atual — onde
