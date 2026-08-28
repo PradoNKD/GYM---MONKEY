@@ -15,6 +15,49 @@ Documento visual completo:
 
 ## Estado atual — onde paramos (2026-08-28)
 
+### Registro de treino, Fase A — ENTREGUE
+
+Pedido que **veio dos usuários**, não do roadmap: "quero registrar os exercícios
+que fiz". Entregue a **Fase A**, como a decisão das duas fases manda.
+
+No check-out, o formulário abre sozinho — é o momento de maior intenção; pedir
+depois é pedir para quem já guardou o celular. Três campos, **todos opcionais**:
+
+- **Tipo de treino**: até 3 chips (Peito, Costas, Pernas, Ombros, Braços,
+  Abdômen, Cardio, Corpo inteiro, Outro). Lista, e não valor único, porque
+  "peito e tríceps" é o caso comum — forçar um só empurraria a maioria para
+  "Outro" e estragaria o sinal.
+- **Esforço 1–5** percebido. Clicar no que já está marcado desmarca.
+- **Anotação** de até 280 caracteres. É aqui que "supino 4x10 com 40kg" cabe.
+
+Decisões que não são estilo:
+
+1. **Nada disso entra em contagem.** Rótulo não decide streak, meta nem placar.
+2. **Fica fora da trava de correção.** A trava (uma por sessão, teto de +1h)
+   existe porque horário decide o que conta. Anotar é livre e ilimitado — gastar
+   a única correção da sessão para consertar um erro de digitação puniria
+   exatamente o comportamento que se quer estimular nesta fase. Por isso a rota
+   é separada: `PATCH /sessions/:id/registro`, não `PATCH /sessions/:id`.
+3. **Preencher é sempre opcional**, e a tela diz isso. O check-out sustenta
+   streak, meta e placar; pôr fricção ali arriscaria a métrica que já funciona
+   para ganhar uma que ainda não existe.
+4. **Campo ausente não mexe, `null` limpa.** Sem essa distinção, salvar só o
+   esforço apagaria a nota — é o bug mais caro possível nesta tela, e tem teste
+   com mutação provando que é pego.
+
+**Como decidir a Fase B:** a evidência é o próprio conteúdo. Se as pessoas
+escreverem "supino 4x10 com 40kg" nas notas, o registro estruturado se
+justifica; se as notas ficarem vazias, não se justificava mesmo. O número sai de
+uma consulta (`workoutTypes`, `effort` ou `note` preenchidos ÷ total de sessões)
+— não foi construído painel para isso, de propósito.
+
+Migration `20260828181025_registro_de_treino_fase_a`, aditiva e nullable.
+Suíte: **291 no backend** (112 unitários + 179 e2e) e **194 no frontend**.
+
+---
+
+## Estado da v1.0 (2026-08-28)
+
 A **v1.0 está entregue e EM PRODUÇÃO** desde 2026-08-28. O que entrou:
 
 - **Meta semanal** de 3 a 6 treinos (padrão 3), trocável pela pessoa, valendo
@@ -731,7 +774,7 @@ de verificar a aprovação.
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
 | **v1.4** | Notificações | Recap semanal **por e-mail primeiro** (100% da base), Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |
-| **v2.0** | Registro de treino | Fase A: tipo de treino + nota + esforço 1 a 5 no check-out (~1–2 dias). Fase B: catálogo de exercícios, séries, cargas, PRs, gráficos — **só se a Fase A mostrar adesão** |
+| **v2.0** | Registro de treino | ~~Fase A: tipo de treino + nota + esforço 1 a 5 no check-out~~ — **entregue em 2026-08-28**, antecipada por pedido dos usuários. Fase B: catálogo de exercícios, séries, cargas, PRs, gráficos — **só se a Fase A mostrar adesão** |
 | **v2.x** | Condicional | Geofence / QR de validação de local — **só contra fraude observada**, não imaginada |
 
 **Ponto de decisão na v1.3**: é onde a ambição (pessoal / portfólio / SaaS)

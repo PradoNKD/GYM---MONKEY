@@ -4,6 +4,7 @@ import type {
   MetaSemanal,
   PaginaSessoes,
   RegisterResponse,
+  RegistroTreinoEntrada,
   Role,
   SemanaFechada,
   Sessao,
@@ -94,6 +95,23 @@ export function corrigirSessao(
   dados: { startedAt?: string; endedAt?: string; reason: string },
 ) {
   return request<Sessao>(`/sessions/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(dados),
+  });
+}
+
+/**
+ * Registro do treino (Fase A). Rota separada da correcao de horario: rotulo e
+ * nota nao entram em contagem nenhuma, entao editar e livre e nao consome a
+ * unica correcao da sessao.
+ */
+export function anotarSessao(
+  token: string,
+  id: string,
+  dados: RegistroTreinoEntrada,
+) {
+  return request<Sessao>(`/sessions/${id}/registro`, {
     method: "PATCH",
     token,
     body: JSON.stringify(dados),

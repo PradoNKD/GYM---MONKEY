@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SessionSource, SessionStatus } from '@prisma/client';
+import { SessionSource, SessionStatus, WorkoutType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SemanasService } from './semanas.service';
 import {
@@ -16,6 +16,14 @@ import {
   DURACAO_MIN_MIN,
   ehContabil,
 } from './regras';
+import {
+  ESFORCO_MAX,
+  ESFORCO_MIN,
+  MAX_TIPOS,
+  normalizarRegistro,
+  NOTA_MAX,
+  RegistroEntrada,
+} from './registro';
 import { chaveDoDia, minutosEntre, semanaDe, somarDias } from './tempo';
 
 @Injectable()
@@ -259,7 +267,16 @@ export class SessionsService {
       recordeDiario: diarias.recorde,
       semana,
       meta,
-      regras: { duracaoMinimaMin: DURACAO_MIN_MIN },
+      regras: {
+        duracaoMinimaMin: DURACAO_MIN_MIN,
+        // A tela nao precisa repetir estes numeros: eles moram aqui e no DTO.
+        registro: {
+          tiposMax: MAX_TIPOS,
+          esforcoMin: ESFORCO_MIN,
+          esforcoMax: ESFORCO_MAX,
+          notaMax: NOTA_MAX,
+        },
+      },
     };
   }
 
@@ -271,6 +288,9 @@ export class SessionsService {
     status: SessionStatus;
     source: SessionSource;
     dayKey: string;
+    workoutTypes: WorkoutType[];
+    effort: number | null;
+    note: string | null;
   }, jaCorrigida = false) {
     return {
       id: sessao.id,
@@ -280,6 +300,11 @@ export class SessionsService {
       status: sessao.status,
       source: sessao.source,
       dayKey: sessao.dayKey,
+      // Registro da Fase A. Sempre presente na resposta (lista vazia / nulos),
+      // pra tela nao ter de tratar "campo que as vezes vem".
+      workoutTypes: sessao.workoutTypes,
+      effort: sessao.effort,
+      note: sessao.note,
       // Deixa explicito na resposta se a sessao entra nas contas, pra a tela
       // nao ter de reimplementar a regra.
       contavel: ehContabil(sessao.status),
@@ -474,6 +499,59 @@ export class SessionsService {
       // A sessao acabou de gastar a correcao: nao e mais corrigivel pelo dono.
       return this.paraResposta(atualizada, true);
     });
+  }
+
+  /**
+   * Registro de treino da Fase A: o que treinou, o quanto puxou e uma nota.
+   *
+   * Fica DE FORA da trava de correcao de proposito. A trava (uma correcao por
+   * sessao, teto de +1h) existe porque horario decide o que conta: foi assim
+   * que um treino de 1 minuto virou 240 min contaveis. Rotulo e nota nao
+   * decidem streak, meta nem placar -- nao ha o que burlar, entao editar e
+   * livre e quantas vezes quiser. Gastar a unica correcao da sessao pra
+   * consertar um erro de digitacao seria punir o preenchimento, que e
+   * exatamente o comportamento que se quer estimular nesta fase.
+   */
+  async anotar(
+    autorId: string,
+    sessionId: string,
+    dados: RegistroEntrada,
+    ehSupervisor = false,
+  ) {
+    const sessao = await this.prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, userId: true },
+    });
+    if (!sessao) throw new NotFoundException('Sessao nao encontrada');
+
+    if (sessao.userId !== autorId && !ehSupervisor) {
+      throw new ForbiddenException('Voce so pode anotar os seus treinos');
+    }
+
+    const registro = normalizarRegistro(dados);
+
+    // Corpo vazio nao e erro: a tela pode salvar sem a pessoa ter mexido em
+    // nada. So nao vale disparar uma escrita a toa.
+    if (Object.keys(registro).length === 0) {
+      return this.buscarParaResposta(sessionId);
+    }
+
+    await this.prisma.workoutSession.update({
+      where: { id: sessao.id },
+      data: registro,
+    });
+
+    return this.buscarParaResposta(sessionId);
+  }
+
+  /** Recarrega a sessao ja no formato que a tela espera, com o `corrigivel`. */
+  private async buscarParaResposta(sessionId: string) {
+    const atual = await this.prisma.workoutSession.findUniqueOrThrow({
+      where: { id: sessionId },
+      include: { _count: { select: { corrections: true } } },
+    });
+
+    return this.paraResposta(atual, atual._count.corrections > 0);
   }
 
   /** Trilha de auditoria de uma sessao, do mais recente pro mais antigo. */

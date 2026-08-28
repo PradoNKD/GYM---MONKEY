@@ -43,6 +43,32 @@ export interface UsuarioAdmin {
 
 export type StatusSessao = "OPEN" | "COMPLETED" | "SHORT" | "AUTO_CLOSED";
 
+/**
+ * O que a pessoa treinou (registro Fase A). Lista curta de proposito: e um
+ * rotulo para ela se reconhecer no historico, nao um catalogo de exercicios.
+ * Espelha o enum do servidor, como `StatusSessao` ja faz.
+ */
+export type TipoTreino =
+  | "PEITO"
+  | "COSTAS"
+  | "PERNAS"
+  | "OMBROS"
+  | "BRACOS"
+  | "ABDOMEN"
+  | "CARDIO"
+  | "CORPO_INTEIRO"
+  | "OUTRO";
+
+/**
+ * O que a tela manda ao anotar um treino. Campo ausente NAO mexe no que ja
+ * estava; `null` limpa. E o que impede salvar so o esforco e apagar a nota.
+ */
+export interface RegistroTreinoEntrada {
+  workoutTypes?: TipoTreino[] | null;
+  effort?: number | null;
+  note?: string | null;
+}
+
 export interface Sessao {
   id: string;
   startedAt: string;
@@ -60,6 +86,14 @@ export interface Sessao {
    * servidor: e a mesma regra que ele aplica no PATCH.
    */
   corrigivel: boolean;
+
+  // --- Registro Fase A ---
+  // Sempre presentes (lista vazia / nulos), nunca ausentes: a tela nao trata
+  // "campo que as vezes vem".
+  workoutTypes: TipoTreino[];
+  /** Esforco percebido de 1 a 5. */
+  effort: number | null;
+  note: string | null;
 }
 
 export type StatusSemana = "CUMPRIDA" | "CONGELADA" | "PERDIDA";
@@ -106,7 +140,16 @@ export interface ResumoSessoes {
   recordeDiario: number;
   semana: { treinos: number; minutos: number };
   meta: MetaSemanal;
-  regras: { duracaoMinimaMin: number };
+  regras: {
+    duracaoMinimaMin: number;
+    /** Limites do registro, para a tela nao repetir os numeros do servidor. */
+    registro: {
+      tiposMax: number;
+      esforcoMin: number;
+      esforcoMax: number;
+      notaMax: number;
+    };
+  };
 }
 
 export interface PaginaSessoes {

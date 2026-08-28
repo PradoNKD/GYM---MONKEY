@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { Role, SessionStatus } from '@prisma/client';
+import { Role, SessionStatus, WorkoutType } from '@prisma/client';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -904,6 +904,236 @@ describe('Sessions API (e2e)', () => {
       expect(r.body.resumo.meta.limites).toEqual({ metaMin: 3, metaMax: 6 });
       // A streak diaria continua, agora acompanhada do recorde.
       expect(r.body.resumo.recordeDiario).toBe(0);
+    });
+  });
+  describe('PATCH /sessions/:id/registro (registro da Fase A)', () => {
+    async function sessaoFechada(userId: string) {
+      return prisma.workoutSession.create({
+        data: {
+          userId,
+          startedAt: new Date('2026-08-26T12:00:00Z'),
+          endedAt: new Date('2026-08-26T13:00:00Z'),
+          durationMin: 60,
+          status: SessionStatus.COMPLETED,
+          dayKey: '2026-08-26',
+        },
+      });
+    }
+
+    it('sem token -> 401', async () => {
+      const { user } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .send({ effort: 3 })
+        .expect(401);
+    });
+
+    it('grava tipo, esforco e nota', async () => {
+      const { user, token } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      const r = await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          workoutTypes: [WorkoutType.PEITO, WorkoutType.BRACOS],
+          effort: 4,
+          note: 'supino 4x10 com 40kg',
+        })
+        .expect(200);
+
+      expect(r.body.workoutTypes).toEqual(['PEITO', 'BRACOS']);
+      expect(r.body.effort).toBe(4);
+      expect(r.body.note).toBe('supino 4x10 com 40kg');
+    });
+
+    // O bug mais caro possivel nesta tela: salvar o esforco e apagar a nota.
+    it('mandar so um campo nao apaga os outros', async () => {
+      const { user, token } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ workoutTypes: [WorkoutType.PERNAS], effort: 5, note: 'agachamento' })
+        .expect(200);
+
+      const r = await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ effort: 3 })
+        .expect(200);
+
+      expect(r.body.effort).toBe(3);
+      expect(r.body.note).toBe('agachamento');
+      expect(r.body.workoutTypes).toEqual(['PERNAS']);
+    });
+
+    it('null limpa o campo', async () => {
+      const { user, token } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ note: 'errei', workoutTypes: [WorkoutType.CARDIO] })
+        .expect(200);
+
+      const r = await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ note: null, workoutTypes: null })
+        .expect(200);
+
+      expect(r.body.note).toBeNull();
+      expect(r.body.workoutTypes).toEqual([]);
+    });
+
+    // A trava de correcao existe porque horario decide o que conta. Rotulo nao
+    // decide nada, entao editar tem de ser livre -- senao consertar um erro de
+    // digitacao custaria a unica correcao da sessao.
+    it('editar quantas vezes quiser, sem gastar a correcao', async () => {
+      const { user, token } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      for (const effort of [1, 2, 3, 4, 5]) {
+        await request(server)
+          .patch(`/sessions/${s.id}/registro`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ effort })
+          .expect(200);
+      }
+
+      const r = await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ effort: 2 })
+        .expect(200);
+
+      // Nenhuma linha de auditoria: isto nao e correcao.
+      expect(
+        await prisma.sessionCorrection.count({ where: { sessionId: s.id } }),
+      ).toBe(0);
+      // E a sessao continua corrigivel: anotar nao consumiu esse direito.
+      expect(r.body.corrigivel).toBe(true);
+    });
+
+    it('nao anota o treino de outra pessoa -> 403', async () => {
+      const dono = await novoUsuario();
+      const intruso = await novoUsuario();
+      const s = await sessaoFechada(dono.user.id);
+
+      await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${intruso.token}`)
+        .send({ effort: 5 })
+        .expect(403);
+    });
+
+    describe('validacao', () => {
+      it('recusa esforco fora de 1..5', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        for (const effort of [0, 6, 2.5]) {
+          await request(server)
+            .patch(`/sessions/${s.id}/registro`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ effort })
+            .expect(400);
+        }
+      });
+
+      it('recusa tipo que nao existe', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        await request(server)
+          .patch(`/sessions/${s.id}/registro`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ workoutTypes: ['CROSSFIT'] })
+          .expect(400);
+      });
+
+      it('recusa mais tipos que o maximo', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        await request(server)
+          .patch(`/sessions/${s.id}/registro`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ workoutTypes: ['PEITO', 'COSTAS', 'PERNAS', 'OMBROS'] })
+          .expect(400);
+      });
+
+      it('recusa nota longa demais', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        await request(server)
+          .patch(`/sessions/${s.id}/registro`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ note: 'a'.repeat(281) })
+          .expect(400);
+      });
+
+      it('corpo vazio nao e erro, so nao muda nada', async () => {
+        const { user, token } = await novoUsuario();
+        const s = await sessaoFechada(user.id);
+
+        await request(server)
+          .patch(`/sessions/${s.id}/registro`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({})
+          .expect(200);
+      });
+    });
+
+    it('o registro aparece na listagem e nos limites do resumo', async () => {
+      const { user, token } = await novoUsuario();
+      const s = await sessaoFechada(user.id);
+
+      await request(server)
+        .patch(`/sessions/${s.id}/registro`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ workoutTypes: [WorkoutType.COSTAS], effort: 3, note: 'remada' })
+        .expect(200);
+
+      const r = await request(server)
+        .get('/sessions')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const item = r.body.itens.find((i: { id: string }) => i.id === s.id);
+      expect(item).toMatchObject({
+        workoutTypes: ['COSTAS'],
+        effort: 3,
+        note: 'remada',
+      });
+      expect(r.body.resumo.regras.registro).toEqual({
+        tiposMax: 3,
+        esforcoMin: 1,
+        esforcoMax: 5,
+        notaMax: 280,
+      });
+    });
+
+    it('sessao sem registro vem com os campos vazios, nunca ausentes', async () => {
+      const { user, token } = await novoUsuario();
+      await sessaoFechada(user.id);
+
+      const r = await request(server)
+        .get('/sessions')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(r.body.itens[0]).toMatchObject({
+        workoutTypes: [],
+        effort: null,
+        note: null,
+      });
     });
   });
 });

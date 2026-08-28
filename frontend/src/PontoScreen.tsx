@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
+  ListPlus,
   LogOut,
   Pencil,
   ShieldCheck,
@@ -10,10 +11,12 @@ import {
 import {
   alterarMeta,
   alternarTreino,
+  anotarSessao,
   ApiError,
   buscarSessoes,
   corrigirSessao,
 } from "./api";
+import { RegistroTreino, ResumoDoRegistro } from "./RegistroTreino";
 import { BotaoTema } from "./BotaoTema";
 import { MetaSemana } from "./MetaSemana";
 import { useAuth } from "./AuthContext";
@@ -27,7 +30,7 @@ import {
   rotuloDoDia,
   temFimConfiavel,
 } from "./calculos";
-import type { PaginaSessoes, Sessao } from "./types";
+import type { PaginaSessoes, RegistroTreinoEntrada, Sessao } from "./types";
 
 /** So o primeiro nome: o header do celular nao tem largura pra "Sair (Nome Sobrenome)". */
 function primeiroNome(nome: string | undefined): string {
@@ -42,6 +45,14 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const [enviando, setEnviando] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [salvandoMeta, setSalvandoMeta] = useState(false);
+
+  // Registro do treino (Fase A). `registrandoNovo` distingue o formulario que
+  // abriu sozinho depois do check-out do que a pessoa abriu pelo historico:
+  // so o primeiro merece destaque.
+  const [registrandoId, setRegistrandoId] = useState<string | null>(null);
+  const [registrandoNovo, setRegistrandoNovo] = useState(false);
+  const [salvandoRegistro, setSalvandoRegistro] = useState(false);
+  const [erroRegistro, setErroRegistro] = useState<string | null>(null);
 
   // Correcao em andamento (uma por vez).
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -82,6 +93,12 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const resumo = pagina?.resumo;
   const emAndamento = resumo?.emAndamento ?? null;
   const duracaoMinima = resumo?.regras.duracaoMinimaMin ?? 20;
+  const limitesRegistro = resumo?.regras.registro ?? {
+    tiposMax: 3,
+    esforcoMin: 1,
+    esforcoMax: 5,
+    notaMax: 280,
+  };
   const grupos = useMemo(
     () => agruparSessoesPorDia(pagina?.itens ?? []),
     [pagina?.itens],
@@ -94,10 +111,19 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     setEnviando(true);
 
     try {
-      await alternarTreino(token);
+      const sessao = await alternarTreino(token);
       // Recarrega em vez de remendar o estado local: streak e resumo da semana
       // sao calculados no servidor, entao so ele sabe os numeros novos.
       await carregar();
+
+      // Acabou de FINALIZAR um treino: abre o registro sozinho. E o momento de
+      // maior intencao -- pedir depois, numa tela separada, e pedir para uma
+      // pessoa que ja guardou o celular.
+      if (sessao.endedAt) {
+        setErroRegistro(null);
+        setRegistrandoId(sessao.id);
+        setRegistrandoNovo(true);
+      }
     } catch (error) {
       setErro(
         error instanceof ApiError ? error.message : "Nao foi possivel registrar o treino",
@@ -124,6 +150,38 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     } finally {
       setSalvandoMeta(false);
     }
+  }
+
+  async function salvarRegistro(id: string, dados: RegistroTreinoEntrada) {
+    if (!token) return;
+    setErroRegistro(null);
+    setSalvandoRegistro(true);
+
+    try {
+      await anotarSessao(token, id, dados);
+      await carregar();
+      setRegistrandoId(null);
+      setRegistrandoNovo(false);
+    } catch (error) {
+      setErroRegistro(
+        error instanceof ApiError ? error.message : "Nao foi possivel salvar o registro",
+      );
+    } finally {
+      setSalvandoRegistro(false);
+    }
+  }
+
+  function abrirRegistro(sessao: Sessao) {
+    setErroRegistro(null);
+    setEditandoId(null);
+    setRegistrandoId(sessao.id);
+    setRegistrandoNovo(false);
+  }
+
+  function fecharRegistro() {
+    setRegistrandoId(null);
+    setRegistrandoNovo(false);
+    setErroRegistro(null);
   }
 
   async function carregarMais() {
@@ -245,11 +303,12 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     if (editandoId === sessao.id) return renderCorrecao(sessao);
 
     const aviso = motivoDeNaoContar(sessao, duracaoMinima);
+    const registrando = registrandoId === sessao.id;
 
     return (
       <li
         key={sessao.id}
-        className={`linha-registro linha-sessao ${sessao.contavel ? "" : "linha-sessao--nao-conta"}`}
+        className={`linha-registro linha-sessao ${sessao.contavel ? "" : "linha-sessao--nao-conta"} ${registrando ? "linha-sessao--registrando" : ""}`}
       >
         <span className="sessao-info">
           <span className="sessao-horas">
@@ -262,9 +321,23 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
               {aviso}
             </span>
           )}
+          {!registrando && <ResumoDoRegistro sessao={sessao} />}
         </span>
         <span className="sessao-duracao">{descricaoDaDuracao(sessao)}</span>
-        {sessao.corrigivel && (
+        {/* Anotar e corrigir sao coisas diferentes, e a tela nao pode
+            confundi-las: corrigir mexe no que CONTA e e auditado; anotar e
+            rotulo, livre e ilimitado. Por isso dois botoes, nao um menu. */}
+        {sessao.status !== "OPEN" && !registrando && (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => abrirRegistro(sessao)}
+            aria-label="Registrar o treino"
+          >
+            <ListPlus size={14} />
+          </button>
+        )}
+        {sessao.corrigivel && !registrando && (
           <button
             type="button"
             className="icon-btn"
@@ -273,6 +346,17 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           >
             <Pencil size={14} />
           </button>
+        )}
+        {registrando && (
+          <RegistroTreino
+            sessao={sessao}
+            limites={limitesRegistro}
+            salvando={salvandoRegistro}
+            erro={erroRegistro}
+            destacado={registrandoNovo}
+            onSalvar={(dados) => salvarRegistro(sessao.id, dados)}
+            onCancelar={fecharRegistro}
+          />
         )}
       </li>
     );

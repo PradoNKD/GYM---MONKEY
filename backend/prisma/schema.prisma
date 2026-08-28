@@ -92,6 +92,20 @@ enum SessionStatus {
   AUTO_CLOSED // fechada pelo sistema por ficar aberta demais -> nao contabil
 }
 
+// O que a pessoa treinou. Lista curta de proposito: e um rotulo para ela se
+// reconhecer no historico, nao um catalogo de exercicios (isso e a Fase B).
+enum WorkoutType {
+  PEITO
+  COSTAS
+  PERNAS
+  OMBROS
+  BRACOS
+  ABDOMEN
+  CARDIO
+  CORPO_INTEIRO
+  OUTRO
+}
+
 enum SessionSource {
   APP // a pessoa tocou o botao
   BACKFILL // criada na migracao, a partir dos TimeEntry antigos
@@ -121,6 +135,29 @@ model WorkoutSession {
   // "1 treino contavel por dia" e para as agregacoes por dia/semana virarem
   // group by, em vez de recalcular fuso a cada leitura.
   dayKey String
+
+  // --- Registro do treino, Fase A (v2.0) ---
+  //
+  // Tudo opcional, e de proposito: o check-out e a acao que sustenta streak,
+  // meta e placar. Exigir preenchimento ali arriscaria a metrica que ja
+  // funciona para ganhar uma que ainda nao existe.
+  //
+  // Nada aqui entra em contagem nenhuma. Por isso estes campos NAO passam pela
+  // trava de correcao (uma por sessao, teto de +1h): aquela existe porque
+  // horario decide o que conta, e rotulo nao decide nada.
+
+  // Lista porque "peito e triceps" e o caso comum; um valor so empurraria a
+  // maioria para OUTRO e estragaria justamente o sinal que queremos medir.
+  workoutTypes WorkoutType[]
+
+  // Esforco percebido de 1 a 5. E percepcao de treino, nao medida clinica --
+  // dado de saude esta fora do produto (LGPD art. 11).
+  effort Int?
+
+  // Texto livre curto. E aqui que a Fase A vira evidencia para decidir a Fase
+  // B: se as pessoas escreverem "supino 4x10 com 40kg", o registro estruturado
+  // se justifica; se ficar vazio, nao se justificava mesmo.
+  note String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

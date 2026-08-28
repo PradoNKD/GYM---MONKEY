@@ -754,3 +754,177 @@
     overflow-y: visible;
   }
 }
+
+/* --- Registro do treino, Fase A (v2.0) --- */
+/* Vive dentro da linha do historico: o treino recem-fechado ja e o primeiro
+   item da lista, entao o formulario abre exatamente onde a pessoa esta
+   olhando, sem tela nova nem navegacao. */
+
+.linha-sessao--registrando {
+  flex-wrap: wrap;
+  background: var(--superficie-2);
+}
+
+.registro {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+}
+
+/* So o que abriu sozinho depois do check-out ganha destaque. */
+.registro--novo {
+  border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-suave);
+}
+
+.registro-titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+/* "opcional" fica visivel de proposito: preencher nao pode parecer obrigacao. */
+.registro-opcional {
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-2);
+  background: var(--neutro);
+  border-radius: 999px;
+}
+
+.registro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--texto-3);
+  background: var(--neutro);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chip--on {
+  color: var(--inverso-texto);
+  background: var(--inverso);
+  border-color: var(--inverso);
+}
+
+.chip--leitura {
+  cursor: default;
+  font-size: 0.65rem;
+}
+
+.registro-campo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.registro-rotulo {
+  font-size: 0.7rem;
+  color: var(--texto-2);
+}
+
+.registro-esforco {
+  display: flex;
+  gap: 5px;
+}
+
+.esforco-btn {
+  width: 32px;
+  height: 32px;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--texto-3);
+  background: var(--neutro);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.esforco-btn--on {
+  color: var(--inverso-texto);
+  background: var(--marca);
+  border-color: var(--marca);
+}
+
+.esforco-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.registro-esforco-rotulo {
+  font-size: 0.7rem;
+  color: var(--texto-2);
+}
+
+.registro-nota {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--texto);
+  background: var(--campo);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.registro-contador {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--texto-2);
+}
+
+.registro-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+/* Leitura no historico */
+
+.registro-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.registro-resumo-esforco {
+  font-size: 0.65rem;
+  color: var(--texto-2);
+}
+
+.registro-resumo-nota {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--texto-3);
+  overflow-wrap: anywhere;
+}

@@ -22,7 +22,7 @@ regras de integridade no servidor. Na **v1.0** o número principal da home passo
 a ser a **meta semanal** (com streak de semanas e congelamento); a streak diária
 virou recorde histórico.
 
-**Qualidade:** 431 testes automatizados (262 no backend, 169 no frontend),
+**Qualidade:** 485 testes automatizados (291 no backend, 194 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
 **Qual build está no ar:** <https://gym-monkey-api.onrender.com/health> devolve
@@ -40,6 +40,11 @@ A **v1.0** (meta semanal, streak de semanas, congelamento, reparo e modo
 recomeço) está **entregue e em produção** desde 2026-08-28, junto com o
 `/health` que informa a versão do build. O fechamento semanal é **preguiçoso,
 sem job agendado** — o porquê está no PROXIMOS-PASSOS.
+
+A **Fase A do registro de treino** (v2.0) foi antecipada em 2026-08-28 por
+pedido dos usuários: no check-out dá pra marcar o que treinou, o esforço de 1 a
+5 e uma anotação curta — tudo opcional, e nada disso entra em contagem. A Fase B
+(catálogo de exercícios, séries, cargas) só se esta mostrar adesão real.
 
 O próximo passo de código é o resto da linha v1.0 (marcos, heatmap do ano,
 prêmio na quebra de recorde) ou pular para a **v1.1**.

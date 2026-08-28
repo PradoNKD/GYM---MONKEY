@@ -25,12 +25,17 @@ vi.mock("./api", async () => {
     alternarTreino: vi.fn(),
     corrigirSessao: vi.fn(),
     alterarMeta: vi.fn(),
+    anotarSessao: vi.fn(),
   };
 });
 
-const { buscarSessoes, alternarTreino, corrigirSessao, alterarMeta } = await import(
-  "./api"
-);
+const { buscarSessoes, alternarTreino, corrigirSessao, alterarMeta, anotarSessao } =
+  await import("./api");
+
+const REGRAS = {
+  duracaoMinimaMin: 20,
+  registro: { tiposMax: 3, esforcoMin: 1, esforcoMax: 5, notaMax: 280 },
+};
 
 function meta(over: Partial<MetaSemanal> = {}): MetaSemanal {
   return {
@@ -59,6 +64,9 @@ function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
     status,
     source: "APP",
     dayKey: over.dayKey,
+    workoutTypes: over.workoutTypes ?? [],
+    effort: over.effort !== undefined ? over.effort : null,
+    note: over.note !== undefined ? over.note : null,
     contavel: over.contavel ?? status === "COMPLETED",
     corrigivel: over.corrigivel ?? status !== "OPEN",
   };
@@ -74,7 +82,7 @@ function pagina(over: Partial<PaginaSessoes> = {}): PaginaSessoes {
       recordeDiario: 0,
       semana: { treinos: 0, minutos: 0 },
       meta: meta(),
-      regras: { duracaoMinimaMin: 20 },
+      regras: REGRAS,
       ...over.resumo,
     },
   };
@@ -119,6 +127,135 @@ describe("PontoScreen (sessoes)", () => {
       expect(
         await screen.findByText("Nao foi possivel carregar o historico"),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("registro do treino (Fase A)", () => {
+    // O check-out e o momento de maior intencao. Pedir depois, numa tela
+    // separada, e pedir para quem ja guardou o celular.
+    it("abre o registro sozinho depois de finalizar o treino", async () => {
+      const aberta = sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null });
+      const fechada = sessao({ id: aberta.id, dayKey: CHAVE_HOJE });
+
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [aberta], resumo: { ...pagina().resumo, emAndamento: aberta } }),
+      );
+      vi.mocked(alternarTreino).mockResolvedValue(fechada);
+
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Finalizar treino" });
+
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina({ itens: [fechada] }));
+      await userEvent.click(screen.getByRole("button", { name: "Finalizar treino" }));
+
+      expect(await screen.findByLabelText("Registrar o treino")).toBeInTheDocument();
+    });
+
+    it("nao abre o registro ao COMECAR o treino", async () => {
+      const aberta = sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null });
+
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockResolvedValue(aberta);
+
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
+
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [aberta], resumo: { ...pagina().resumo, emAndamento: aberta } }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Começar treino" }));
+
+      await screen.findByRole("button", { name: "Finalizar treino" });
+      expect(screen.queryByLabelText("Registrar o treino")).not.toBeInTheDocument();
+    });
+
+    it("salva o registro e recarrega os numeros do servidor", async () => {
+      const s = sessao({ dayKey: CHAVE_HOJE });
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina({ itens: [s] }));
+      vi.mocked(anotarSessao).mockResolvedValue({ ...s, effort: 4 });
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Registrar o treino" }),
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Pernas" }));
+      await userEvent.click(screen.getByRole("button", { name: "4 - Puxado" }));
+      await userEvent.type(screen.getByLabelText("Anotação"), "agachamento 3x12");
+      vi.mocked(buscarSessoes).mockClear();
+      await userEvent.click(screen.getByRole("button", { name: /Salvar/ }));
+
+      expect(anotarSessao).toHaveBeenCalledWith("tok", s.id, {
+        workoutTypes: ["PERNAS"],
+        effort: 4,
+        note: "agachamento 3x12",
+      });
+      await waitFor(() => expect(buscarSessoes).toHaveBeenCalled());
+    });
+
+    it("mostra o registro no historico", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          itens: [
+            sessao({
+              dayKey: CHAVE_HOJE,
+              workoutTypes: ["COSTAS"],
+              effort: 3,
+              note: "remada 4x10",
+            }),
+          ],
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText("Costas")).toBeInTheDocument();
+      expect(screen.getByText("Esforço 3 · Moderado")).toBeInTheDocument();
+      expect(screen.getByText("remada 4x10")).toBeInTheDocument();
+    });
+
+    it("mostra o erro do servidor sem fechar o formulario", async () => {
+      const s = sessao({ dayKey: CHAVE_HOJE });
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina({ itens: [s] }));
+      vi.mocked(anotarSessao).mockRejectedValue(new ApiError("Sessao nao encontrada"));
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Registrar o treino" }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: /Salvar/ }));
+
+      expect(await screen.findByText("Sessao nao encontrada")).toBeInTheDocument();
+      expect(screen.getByLabelText("Registrar o treino")).toBeInTheDocument();
+    });
+
+    // Corrigir mexe no que CONTA e e auditado; anotar e rotulo. A tela nao
+    // pode confundir as duas coisas.
+    it("treino em andamento nao oferece registro", async () => {
+      const aberta = sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null });
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina({ itens: [aberta] }));
+
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
+
+      expect(
+        screen.queryByRole("button", { name: "Registrar o treino" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("treino que ja gastou a correcao ainda pode ser anotado", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, corrigivel: false })] }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(
+        await screen.findByRole("button", { name: "Registrar o treino" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Corrigir treino" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -169,7 +306,7 @@ describe("PontoScreen (sessoes)", () => {
             recordeDiario: 9,
             semana: { treinos: 3, minutos: 195 },
             meta: meta({ treinos: 3, faltam: 0, cumprida: true, streakSemanas: 5 }),
-            regras: { duracaoMinimaMin: 20 },
+            regras: REGRAS,
           },
         }),
       );
@@ -198,7 +335,7 @@ describe("PontoScreen (sessoes)", () => {
             recordeDiario: 1,
             semana: { treinos: 0, minutos: 0 },
             meta: meta(),
-            regras: { duracaoMinimaMin: 20 },
+            regras: REGRAS,
           },
         }),
       );

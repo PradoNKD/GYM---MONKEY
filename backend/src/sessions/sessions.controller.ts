@@ -14,6 +14,7 @@ import { Role } from '@prisma/client';
 import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AlterarMetaDto } from './dto/alterar-meta.dto';
+import { AnotarSessaoDto } from './dto/anotar-sessao.dto';
 import { CorrigirSessaoDto } from './dto/corrigir-sessao.dto';
 import { ListarSessoesDto } from './dto/listar-sessoes.dto';
 import { SemanasService } from './semanas.service';
@@ -64,6 +65,18 @@ export class SessionsController {
     @Body() dto: CorrigirSessaoDto,
   ) {
     return this.sessionsService.corrigir(user.id, id, dto, user.role === Role.SUPERVISOR);
+  }
+
+  // Registro da Fase A. Rota separada do PATCH /sessions/:id de proposito: la
+  // e correcao de horario, auditada e limitada; aqui e rotulo, que nao entra em
+  // conta nenhuma e pode ser editado a vontade.
+  @Patch(':id/registro')
+  annotate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AnotarSessaoDto,
+  ) {
+    return this.sessionsService.anotar(user.id, id, dto, user.role === Role.SUPERVISOR);
   }
 
   @Get(':id/corrections')
