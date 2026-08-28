@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { SessionSource, SessionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SemanasService } from './semanas.service';
 import {
   AUMENTO_MAX_CORRECAO_MIN,
   AUTO_FECHAMENTO_MIN,
@@ -19,7 +20,10 @@ import { chaveDoDia, minutosEntre, semanaDe, somarDias } from './tempo';
 
 @Injectable()
 export class SessionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly semanas: SemanasService,
+  ) {}
 
   // O relogio fica isolado num metodo pra os testes poderem congelar o tempo.
   protected agora(): Date {
@@ -160,8 +164,14 @@ export class SessionsService {
   /**
    * Streak em dias, no fuso do usuario. Conta apenas dias com sessao CONTABIL,
    * entao treino de 1 segundo nao alimenta mais a sequencia.
+   *
+   * A partir da v1.0 o numero que manda na home e a semana, nao o dia: streak
+   * diaria pune o descanso, porque para nao perde-la a pessoa precisa treinar
+   * todo santo dia. Ela continua aqui, mas com o RECORDE junto -- exibir o
+   * recorde e comemorar o que a pessoa ja fez; exibir so o atual e mostrar,
+   * todo dia de folga, um numero caindo.
    */
-  async streak(userId: string): Promise<number> {
+  async streaks(userId: string): Promise<{ atual: number; recorde: number }> {
     const user = await this.usuario(userId);
 
     const dias = await this.prisma.workoutSession.findMany({
@@ -175,13 +185,32 @@ export class SessionsService {
 
     // Se ainda nao treinou hoje, a sequencia pode estar viva desde ontem.
     let cursor = comTreino.has(hoje) ? hoje : somarDias(hoje, -1);
-    let streak = 0;
+    let atual = 0;
     while (comTreino.has(cursor)) {
-      streak++;
+      atual++;
       cursor = somarDias(cursor, -1);
     }
 
-    return streak;
+    // Recorde: cada dia sem o anterior e o inicio de uma corrida; a partir dele
+    // se anda para frente. Assim cada dia e visitado uma vez so.
+    let recorde = 0;
+    for (const dia of comTreino) {
+      if (comTreino.has(somarDias(dia, -1))) continue;
+
+      let corrida = 0;
+      let passo = dia;
+      while (comTreino.has(passo)) {
+        corrida++;
+        passo = somarDias(passo, 1);
+      }
+      recorde = Math.max(recorde, corrida);
+    }
+
+    return { atual, recorde };
+  }
+
+  async streak(userId: string): Promise<number> {
+    return (await this.streaks(userId)).atual;
   }
 
   /**
@@ -214,16 +243,22 @@ export class SessionsService {
   }
 
   async resumo(userId: string) {
-    const [emAndamento, streak, semana] = await Promise.all([
+    const [emAndamento, diarias, semana, meta] = await Promise.all([
       this.emAndamento(userId),
-      this.streak(userId),
+      this.streaks(userId),
       this.resumoSemanal(userId),
+      // Fecha as semanas vencidas de passagem: e o que substitui o job
+      // agendado, que nao teria como rodar com o backend dormindo.
+      this.semanas.resumo(userId),
     ]);
 
     return {
       emAndamento,
-      streak,
+      // Mantido para nao quebrar quem ja consome: e a streak diaria atual.
+      streak: diarias.atual,
+      recordeDiario: diarias.recorde,
       semana,
+      meta,
       regras: { duracaoMinimaMin: DURACAO_MIN_MIN },
     };
   }

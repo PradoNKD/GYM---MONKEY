@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
-  Dumbbell,
-  Flame,
   LogOut,
   Pencil,
   ShieldCheck,
-  Timer,
   TriangleAlert,
   X,
 } from "lucide-react";
-import { alternarTreino, ApiError, buscarSessoes, corrigirSessao } from "./api";
+import {
+  alterarMeta,
+  alternarTreino,
+  ApiError,
+  buscarSessoes,
+  corrigirSessao,
+} from "./api";
 import { BotaoTema } from "./BotaoTema";
+import { MetaSemana } from "./MetaSemana";
 import { useAuth } from "./AuthContext";
 import {
   agruparSessoesPorDia,
   descricaoDaDuracao,
   formatarHorario,
-  formatarMinutos,
   isoParaDatetimeLocal,
   mensagemDeSucesso,
   motivoDeNaoContar,
@@ -38,6 +41,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
+  const [salvandoMeta, setSalvandoMeta] = useState(false);
 
   // Correcao em andamento (uma por vez).
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -100,6 +104,25 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
       );
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function trocarMeta(nova: number) {
+    if (!token) return;
+    setErro(null);
+    setSalvandoMeta(true);
+
+    try {
+      await alterarMeta(token, nova);
+      // Recarrega em vez de remendar: so o servidor sabe a partir de qual
+      // semana a meta nova passa a valer.
+      await carregar();
+    } catch (error) {
+      setErro(
+        error instanceof ApiError ? error.message : "Nao foi possivel mudar a meta",
+      );
+    } finally {
+      setSalvandoMeta(false);
     }
   }
 
@@ -289,27 +312,13 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           : "Fora do treino"}
       </p>
 
-      <div className="resumo-semanal">
-        <div className="resumo-item">
-          <Flame size={18} className="resumo-icone resumo-icone--streak" />
-          <span className="resumo-valor">{resumo?.streak ?? 0}</span>
-          <span className="resumo-label">
-            {resumo?.streak === 1 ? "dia seguido" : "dias seguidos"}
-          </span>
-        </div>
-        <div className="resumo-item">
-          <Dumbbell size={18} className="resumo-icone" />
-          <span className="resumo-valor">{resumo?.semana.treinos ?? 0}</span>
-          <span className="resumo-label">
-            {resumo?.semana.treinos === 1 ? "treino essa semana" : "treinos essa semana"}
-          </span>
-        </div>
-        <div className="resumo-item">
-          <Timer size={18} className="resumo-icone" />
-          <span className="resumo-valor">{formatarMinutos(resumo?.semana.minutos ?? 0)}</span>
-          <span className="resumo-label">essa semana</span>
-        </div>
-      </div>
+      <MetaSemana
+        meta={resumo?.meta}
+        recordeDiario={resumo?.recordeDiario ?? 0}
+        minutosNaSemana={resumo?.semana.minutos ?? 0}
+        onAlterarMeta={trocarMeta}
+        salvandoMeta={salvandoMeta}
+      />
 
       {erro && <p className="auth-erro">{erro}</p>}
       {sucesso && (

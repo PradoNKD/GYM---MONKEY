@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PontoScreen } from "./PontoScreen";
 import { ApiError } from "./api";
-import type { PaginaSessoes, Sessao, StatusSessao } from "./types";
+import type { MetaSemanal, PaginaSessoes, Sessao, StatusSessao } from "./types";
 
 const logout = vi.fn();
 
@@ -24,10 +24,30 @@ vi.mock("./api", async () => {
     buscarSessoes: vi.fn(),
     alternarTreino: vi.fn(),
     corrigirSessao: vi.fn(),
+    alterarMeta: vi.fn(),
   };
 });
 
-const { buscarSessoes, alternarTreino, corrigirSessao } = await import("./api");
+const { buscarSessoes, alternarTreino, corrigirSessao, alterarMeta } = await import(
+  "./api"
+);
+
+function meta(over: Partial<MetaSemanal> = {}): MetaSemanal {
+  return {
+    semana: { inicio: "2026-08-24", fim: "2026-08-30" },
+    meta: 3,
+    treinos: 0,
+    faltam: 3,
+    cumprida: false,
+    streakSemanas: 0,
+    tokens: 2,
+    metaAgendada: null,
+    reparo: null,
+    recomeco: false,
+    limites: { metaMin: 3, metaMax: 6 },
+    ...over,
+  };
+}
 
 function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
   const status: StatusSessao = over.status ?? "COMPLETED";
@@ -51,7 +71,9 @@ function pagina(over: Partial<PaginaSessoes> = {}): PaginaSessoes {
     resumo: {
       emAndamento: null,
       streak: 0,
+      recordeDiario: 0,
       semana: { treinos: 0, minutos: 0 },
+      meta: meta(),
       regras: { duracaoMinimaMin: 20 },
       ...over.resumo,
     },
@@ -100,15 +122,53 @@ describe("PontoScreen (sessoes)", () => {
     });
   });
 
+  describe("troca da meta semanal", () => {
+    it("manda a meta nova e recarrega os numeros do servidor", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alterarMeta).mockResolvedValue({
+        meta: 3,
+        metaAgendada: { meta: 5, validaDe: "2026-08-31" },
+      });
+
+      render(<PontoScreen />);
+      await screen.findByLabelText("Meta da semana");
+      vi.mocked(buscarSessoes).mockClear();
+
+      await userEvent.selectOptions(screen.getByRole("combobox"), "5");
+
+      expect(alterarMeta).toHaveBeenCalledWith("tok", 5);
+      // Recarrega: so o servidor sabe a partir de qual semana a meta vale.
+      await waitFor(() => expect(buscarSessoes).toHaveBeenCalled());
+    });
+
+    it("mostra o erro do servidor sem derrubar a tela", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alterarMeta).mockRejectedValue(
+        new ApiError("A meta tem de ser de 3 a 6 treinos por semana"),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByLabelText("Meta da semana");
+
+      await userEvent.selectOptions(screen.getByRole("combobox"), "6");
+
+      expect(
+        await screen.findByText("A meta tem de ser de 3 a 6 treinos por semana"),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("numeros vem do servidor", () => {
-    it("exibe streak e resumo semanal sem recalcular no cliente", async () => {
+    it("exibe os numeros da semana sem recalcular no cliente", async () => {
       vi.mocked(buscarSessoes).mockResolvedValue(
         pagina({
           itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 95 })],
           resumo: {
             emAndamento: null,
             streak: 4,
+            recordeDiario: 9,
             semana: { treinos: 3, minutos: 195 },
+            meta: meta({ treinos: 3, faltam: 0, cumprida: true, streakSemanas: 5 }),
             regras: { duracaoMinimaMin: 20 },
           },
         }),
@@ -116,9 +176,12 @@ describe("PontoScreen (sessoes)", () => {
 
       render(<PontoScreen />);
 
-      expect(await screen.findByText("4")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("3h 15min")).toBeInTheDocument();
+      const card = await screen.findByLabelText("Meta da semana");
+      expect(within(card).getByText("5")).toBeInTheDocument();
+      expect(within(card).getByText("semanas seguidas")).toBeInTheDocument();
+      expect(within(card).getByText("3h 15min")).toBeInTheDocument();
+      // A streak diaria vira recorde: comemora o feito, nao cobra o de hoje.
+      expect(within(card).getByText(/Recorde: 9 dias seguidos/)).toBeInTheDocument();
     });
 
     it("mostra 'treino em andamento' quando o servidor diz que ha sessao aberta", async () => {

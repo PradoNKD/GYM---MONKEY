@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SemanasService } from './semanas.service';
 import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
 
@@ -8,7 +9,7 @@ import { SessionsService } from './sessions.service';
 @Module({
   imports: [PrismaModule],
   controllers: [SessionsController],
-  providers: [SessionsService],
-  exports: [SessionsService],
+  providers: [SessionsService, SemanasService],
+  exports: [SessionsService, SemanasService],
 })
 export class SessionsModule {}

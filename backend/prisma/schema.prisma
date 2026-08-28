@@ -31,6 +31,9 @@ model User {
   // Correcoes que este usuario fez (pode ser em sessao de outra pessoa,
   // quando um supervisor corrige).
   authoredCorrections SessionCorrection[] @relation("correctionAuthor")
+
+  weeklyGoal    WeeklyGoal?
+  weeklyResults WeeklyResult[]
 }
 
 enum TimeEntryType {
@@ -156,4 +159,75 @@ model SessionCorrection {
 
   @@index([sessionId])
   @@index([authorId])
+}
+
+// --- Meta semanal e streak de semanas (v1.0) ---
+
+enum WeekStatus {
+  CUMPRIDA // bateu a meta
+  CONGELADA // nao bateu, mas gastou um congelamento: nao avanca e nao zera
+  PERDIDA // nao bateu e nao tinha congelamento: zera a streak
+}
+
+// Configuracao da pessoa. Fica separada do resultado porque muda por vontade
+// do usuario, enquanto o resultado e consequencia dos treinos.
+model WeeklyGoal {
+  userId String @id
+  // Dias distintos com treino contavel exigidos por semana (3 a 6).
+  meta   Int    @default(3)
+
+  // Meta agendada. Trocar a meta NUNCA vale para a semana corrente -- senao
+  // bastaria baixar de 5 para 3 no domingo a noite para "cumprir" a semana.
+  metaPendente Int?
+  // Semana (segunda, YYYY-MM-DD) a partir da qual metaPendente entra em vigor.
+  metaValidaDe String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Fechamento de uma semana. Uma linha por (usuario, semana), criada de forma
+// preguicosa na primeira leitura depois que a semana acabou.
+//
+// A linha guarda o ESTADO INTEIRO depois do fechamento, nao so o desfecho: a
+// semana mais recente e, sozinha, o estado atual da pessoa. Isso evita uma
+// tabela de estado mutavel paralela (que sairia do lugar) e deixa a historia
+// auditavel -- da para explicar cada streak olhando as linhas.
+model WeeklyResult {
+  id     String @id @default(uuid())
+  userId String
+
+  // Identificada pela segunda-feira ja resolvida no fuso do usuario, em vez do
+  // numero ISO da semana: e a mesma semana ISO, sem os casos de borda de W53 e
+  // de ano ISO diferente do ano civil.
+  semanaInicio String
+  semanaFim    String
+
+  meta    Int
+  treinos Int
+  status  WeekStatus
+
+  reparo            Boolean @default(false)
+  congelamentoUsado Boolean @default(false)
+
+  streakAntes       Int
+  streakDepois      Int
+  tokensDepois      Int
+  // Streak guardada por uma semana PERDIDA, para o reparo da semana seguinte.
+  streakSalva       Int?
+  // Semanas CUMPRIDA seguidas, para ganhar congelamento a cada 4.
+  cumpridasSeguidas Int     @default(0)
+  // Semana do ultimo reparo, carregada adiante: um reparo por trimestre.
+  ultimoReparoEm    String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Idempotencia do fechamento preguicoso: duas requisicoes simultaneas nao
+  // fecham a mesma semana duas vezes -- a segunda esbarra aqui.
+  @@unique([userId, semanaInicio])
+  @@index([userId, semanaInicio])
 }

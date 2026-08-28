@@ -62,10 +62,50 @@ export interface Sessao {
   corrigivel: boolean;
 }
 
+export type StatusSemana = "CUMPRIDA" | "CONGELADA" | "PERDIDA";
+
+/**
+ * Meta semanal e sequencia de SEMANAS (v1.0). Passa a ser o numero principal
+ * da home: a streak diaria pune o descanso, porque so sobrevive treinando
+ * todo dia. Tudo aqui vem calculado do servidor, no fuso da pessoa.
+ */
+export interface MetaSemanal {
+  semana: { inicio: string; fim: string };
+  meta: number;
+  treinos: number;
+  faltam: number;
+  cumprida: boolean;
+  streakSemanas: number;
+  /** Congelamentos guardados: cobrem uma semana fraca sem zerar a sequencia. */
+  tokens: number;
+  /** Meta nova ja escolhida, que passa a valer na semana informada. */
+  metaAgendada: { meta: number; validaDe: string } | null;
+  /** Presente quando da para recuperar a sequencia perdida fazendo `exige`. */
+  reparo: { streakSalva: number; exige: number } | null;
+  /** Quatro semanas ou mais sem treino: a tela troca o tom, sem cobranca. */
+  recomeco: boolean;
+  limites: { metaMin: number; metaMax: number };
+}
+
+export interface SemanaFechada {
+  semanaInicio: string;
+  semanaFim: string;
+  meta: number;
+  treinos: number;
+  status: StatusSemana;
+  reparo: boolean;
+  congelamentoUsado: boolean;
+  streakDepois: number;
+}
+
 export interface ResumoSessoes {
   emAndamento: Sessao | null;
+  /** Streak diaria atual. Continua existindo, mas nao e mais o destaque. */
   streak: number;
+  /** Melhor sequencia de dias ja feita: comemora o feito em vez de cobrar. */
+  recordeDiario: number;
   semana: { treinos: number; minutos: number };
+  meta: MetaSemanal;
   regras: { duracaoMinimaMin: number };
 }
 

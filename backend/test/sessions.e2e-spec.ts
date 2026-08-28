@@ -3,24 +3,50 @@ import { Test } from '@nestjs/testing';
 import { SessionStatus } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { SemanasService } from '../src/sessions/semanas.service';
 import { SessionsService } from '../src/sessions/sessions.service';
+
+// Relogio compartilhado: SessionsService e SemanasService tem de enxergar o
+// MESMO "agora", senao fechar a semana olharia para a data real enquanto os
+// treinos foram gravados na data congelada.
+class Relogio {
+  instante = new Date('2026-08-26T12:00:00Z');
+}
+
+class SemanasServiceComRelogio extends SemanasService {
+  constructor(
+    prisma: PrismaService,
+    private readonly relogio: Relogio,
+  ) {
+    super(prisma);
+  }
+
+  protected agora(): Date {
+    return this.relogio.instante;
+  }
+}
 
 // Servico com relogio controlado: as regras dependem de tempo (cooldown,
 // duracao minima, auto-encerramento), entao congelar o "agora" e o que permite
 // testar o comportamento real sem esperar horas.
 class SessionsServiceComRelogio extends SessionsService {
-  private instante = new Date('2026-08-26T12:00:00Z');
+  constructor(
+    prisma: PrismaService,
+    private readonly relogio = new Relogio(),
+  ) {
+    super(prisma, new SemanasServiceComRelogio(prisma, relogio));
+  }
 
   protected agora(): Date {
-    return this.instante;
+    return this.relogio.instante;
   }
 
   em(iso: string) {
-    this.instante = new Date(iso);
+    this.relogio.instante = new Date(iso);
   }
 
   avancarMin(min: number) {
-    this.instante = new Date(this.instante.getTime() + min * 60000);
+    this.relogio.instante = new Date(this.relogio.instante.getTime() + min * 60000);
   }
 }
 

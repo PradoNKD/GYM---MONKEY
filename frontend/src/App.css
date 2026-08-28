@@ -160,46 +160,151 @@
   color: var(--marca);
 }
 
-.resumo-semanal {
-  display: flex;
+/* --- Meta da semana (v1.0) --- */
+/* Substituiu o resumo de tres colunas: o numero que manda passou a ser a
+   semana, e a sequencia de dias virou recorde no rodape do card. */
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.meta-semana {
   margin-bottom: 24px;
-  padding: 14px 4px;
+  padding: 16px;
   border-radius: 16px;
   background: var(--superficie-2);
 }
 
-.resumo-item {
+.meta-topo {
   display: flex;
-  flex: 1;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.resumo-item + .resumo-item {
-  border-left: 1px solid var(--borda);
-}
-
-.resumo-icone {
+.meta-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--texto-2);
 }
 
-.resumo-icone--streak {
+.meta-seletor select {
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--texto);
+  background: var(--campo);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.meta-seletor select:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.meta-progresso {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.meta-ponto {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--neutro);
+  border: 1px solid var(--borda);
+}
+
+.meta-ponto--feito {
+  background: var(--marca);
+  border-color: var(--marca);
+}
+
+.meta-extra {
+  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--marca);
 }
 
-.resumo-valor {
+.meta-frase {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--texto);
+}
+
+.meta-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+}
+
+.meta-numero {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  color: var(--texto-2);
+}
+
+.meta-numero strong {
   font-family: "Anton", sans-serif;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 400;
   color: var(--texto);
 }
 
-.resumo-label {
-  font-size: 0.65rem;
+.meta-icone {
   color: var(--texto-2);
-  text-align: center;
-  line-height: 1.2;
+}
+
+.meta-icone--streak {
+  color: var(--marca);
+}
+
+.meta-aviso {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--texto-3);
+  background: var(--neutro);
+  border-radius: 10px;
+}
+
+.meta-aviso--reparo {
+  color: var(--texto);
+  background: var(--marca-suave);
+}
+
+.meta-recorde {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  color: var(--texto-2);
 }
 
 .btn {

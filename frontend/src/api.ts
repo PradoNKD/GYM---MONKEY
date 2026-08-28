@@ -1,9 +1,11 @@
 import type {
   AuthResponse,
   Correcao,
+  MetaSemanal,
   PaginaSessoes,
   RegisterResponse,
   Role,
+  SemanaFechada,
   Sessao,
   UsuarioAdmin,
 } from "./types";
@@ -100,6 +102,25 @@ export function corrigirSessao(
 
 export function buscarCorrecoes(token: string, id: string) {
   return request<Correcao[]>(`/sessions/${id}/corrections`, { token });
+}
+
+// --- Meta semanal ---
+
+/**
+ * Troca a meta. A resposta traz a meta EM VIGOR (que nao muda agora) e a
+ * agendada: a nova so vale a partir da semana seguinte, para ninguem baixar a
+ * meta no domingo a noite depois de ver quantos treinos deu.
+ */
+export function alterarMeta(token: string, meta: number) {
+  return request<Pick<MetaSemanal, "meta" | "metaAgendada">>("/sessions/meta", {
+    method: "PUT",
+    token,
+    body: JSON.stringify({ meta }),
+  });
+}
+
+export function buscarSemanas(token: string) {
+  return request<SemanaFechada[]>("/sessions/semanas", { token });
 }
 
 // --- Painel de supervisor ---

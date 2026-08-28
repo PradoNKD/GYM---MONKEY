@@ -1,4 +1,12 @@
-import { chaveDoDia, diaDaSemana, minutosEntre, semanaDe, somarDias } from './tempo';
+import {
+  chaveDoDia,
+  diaDaSemana,
+  inicioDaSemana,
+  minutosEntre,
+  semanaDe,
+  semanasEntre,
+  somarDias,
+} from './tempo';
 
 const SP = 'America/Sao_Paulo';
 
@@ -76,6 +84,45 @@ describe('tempo (dia e semana no fuso do usuario)', () => {
 
       expect(semanaDe(instante, 'UTC').inicio).toBe('2026-08-31');
       expect(semanaDe(instante, SP).inicio).toBe('2026-08-24');
+    });
+  });
+
+  describe('inicioDaSemana', () => {
+    it('leva qualquer dia para a segunda da sua semana', () => {
+      // 2026-08-24 e uma segunda-feira.
+      expect(inicioDaSemana('2026-08-24')).toBe('2026-08-24');
+      expect(inicioDaSemana('2026-08-27')).toBe('2026-08-24');
+      // Domingo pertence a semana que comecou na segunda anterior, nao a proxima.
+      expect(inicioDaSemana('2026-08-30')).toBe('2026-08-24');
+      expect(inicioDaSemana('2026-08-31')).toBe('2026-08-31');
+    });
+
+    it('atravessa a virada de mes e de ano', () => {
+      expect(inicioDaSemana('2026-01-01')).toBe('2025-12-29');
+    });
+
+    it('concorda com semanaDe, que trabalha com instante e fuso', () => {
+      const instante = new Date('2026-08-27T15:00:00Z');
+
+      expect(inicioDaSemana(chaveDoDia(instante, SP))).toBe(semanaDe(instante, SP).inicio);
+    });
+  });
+
+  describe('semanasEntre', () => {
+    it('conta semanas inteiras entre duas segundas', () => {
+      expect(semanasEntre('2026-08-24', '2026-08-24')).toBe(0);
+      expect(semanasEntre('2026-08-24', '2026-08-31')).toBe(1);
+      expect(semanasEntre('2026-08-03', '2026-08-24')).toBe(3);
+    });
+
+    it('nao se perde no horario de verao (as chaves sao dias civis)', () => {
+      // Sao Paulo nao tem mais DST, mas a conta e feita em UTC de proposito
+      // para nao depender disso.
+      expect(semanasEntre('2026-01-05', '2026-12-28')).toBe(51);
+    });
+
+    it('e negativo quando anda para tras', () => {
+      expect(semanasEntre('2026-08-31', '2026-08-24')).toBe(-1);
     });
   });
 

@@ -800,4 +800,110 @@ describe('Sessions API (e2e)', () => {
         .expect(403);
     });
   });
+  describe('PUT /sessions/meta', () => {
+    it('sem token -> 401', async () => {
+      await request(server).put('/sessions/meta').send({ meta: 4 }).expect(401);
+    });
+
+    it('agenda a meta nova para a semana seguinte', async () => {
+      const { token } = await novoUsuario();
+
+      const r = await request(server)
+        .put('/sessions/meta')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ meta: 5 })
+        .expect(200);
+
+      // A meta em vigor NAO muda agora: trocar no meio da semana seria
+      // reescrever a regra depois de ver o resultado.
+      expect(r.body.meta).toBe(3);
+      expect(r.body.metaAgendada.meta).toBe(5);
+      expect(r.body.metaAgendada.validaDe).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('recusa meta fora da faixa de 3 a 6 -> 400', async () => {
+      const { token } = await novoUsuario();
+
+      for (const meta of [2, 7, 0, -1]) {
+        await request(server)
+          .put('/sessions/meta')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ meta })
+          .expect(400);
+      }
+    });
+
+    it('recusa meta que nao e inteiro -> 400', async () => {
+      const { token } = await novoUsuario();
+
+      await request(server)
+        .put('/sessions/meta')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ meta: 3.5 })
+        .expect(400);
+    });
+
+    it('nao aceita campo estranho no corpo -> 400', async () => {
+      const { token } = await novoUsuario();
+
+      await request(server)
+        .put('/sessions/meta')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ meta: 4, streakSemanas: 99 })
+        .expect(400);
+    });
+  });
+
+  describe('GET /sessions/semanas', () => {
+    it('sem token -> 401', async () => {
+      await request(server).get('/sessions/semanas').expect(401);
+    });
+
+    it('a rota nao e confundida com /sessions/:id', async () => {
+      const { token } = await novoUsuario();
+
+      const r = await request(server)
+        .get('/sessions/semanas')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(Array.isArray(r.body)).toBe(true);
+    });
+
+    it('so devolve as semanas de quem pediu', async () => {
+      const a = await novoUsuario();
+      const b = await novoUsuario();
+      await semearSessoes(a.user.id, 3);
+
+      const r = await request(server)
+        .get('/sessions/semanas')
+        .set('Authorization', `Bearer ${b.token}`)
+        .expect(200);
+
+      expect(r.body).toEqual([]);
+    });
+  });
+
+  describe('GET /sessions - resumo da meta', () => {
+    it('entrega meta, streak de semanas e congelamentos', async () => {
+      const { token } = await novoUsuario();
+
+      const r = await request(server)
+        .get('/sessions')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(r.body.resumo.meta).toMatchObject({
+        meta: 3,
+        treinos: 0,
+        cumprida: false,
+        streakSemanas: 0,
+        tokens: 2,
+        recomeco: false,
+      });
+      expect(r.body.resumo.meta.limites).toEqual({ metaMin: 3, metaMax: 6 });
+      // A streak diaria continua, agora acompanhada do recorde.
+      expect(r.body.resumo.recordeDiario).toBe(0);
+    });
+  });
 });
