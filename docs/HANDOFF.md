@@ -4,7 +4,7 @@ Documento pra retomar o trabalho de qualquer máquina. Vive no repositório de
 propósito: `git clone` já te entrega tudo isto, sem depender de nenhuma outra
 ferramenta.
 
-Última atualização: 2026-08-27.
+Última atualização: 2026-08-31.
 
 ---
 
@@ -50,8 +50,9 @@ pedido dos usuários: no check-out dá pra marcar o que treinou, o esforço de 1
 5 e uma anotação curta — tudo opcional, e nada disso entra em contagem. A Fase B
 (catálogo de exercícios, séries, cargas) só se esta mostrar adesão real.
 
-A **v1.0 está completa** desde 2026-08-31: além da meta semanal, entraram o mapa
-do ano, 16 marcos, 3 recordes e o *fresh start* do 1º do mês. O próximo passo é
+A **v1.0 está completa e em produção** desde 2026-08-31 (build `9957d2e`): além
+da meta semanal, entraram o mapa do ano, 16 marcos, 3 recordes e o *fresh start*
+do 1º do mês. O próximo passo é
 a **v1.1** (router e abas, offline-first, onboarding de PWA) ou a Fase B do
 registro — esta última só se a Fase A mostrar adesão.
 

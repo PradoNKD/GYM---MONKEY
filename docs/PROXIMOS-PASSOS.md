@@ -4,7 +4,7 @@ Atividades **em aberto**. Este documento existe pelo mesmo motivo do
 [HANDOFF](HANDOFF.md): vive no repositório para que um `git clone` entregue o
 contexto inteiro, sem depender de histórico de chat.
 
-Última atualização: 2026-08-28.
+Última atualização: 2026-08-31.
 
 Origem: análise de mercado de apps de academia (apps globais, mercado
 brasileiro e evidência de gamificação) cruzada com auditoria do código.
@@ -84,6 +84,28 @@ mesmo instante do check-out.
 
 **A v1.0 está completa.** Suíte: **339 no backend** (144 unitários + 195 e2e) e
 **229 no frontend**.
+
+### O deploy da v1.0 completa (2026-08-31)
+
+Commits `5603da4` (mapa do ano) e `9957d2e` (conquistas). Confirmado nos dois
+lados: `{"status":"ok","database":"up","version":"9957d2e"}` e frontend no bundle
+`index-VbXX8xSp.js`, com as telas novas dentro dele. As rotas novas respondem
+`401` sem token, como as demais. O deploy levou ~2 minutos.
+
+Migration `20260831194313_conquistas_marcos_e_recordes` — **aditiva e toda
+nullable**, aplicada pelo `npm run release` do `startCommand`, sem passo manual.
+
+**O que esperar da primeira visita de cada pessoa.** A avaliação preguiçosa vai
+encontrar vários marcos de uma vez: quem já treina há semanas recebe "Primeiro
+treino", "Primeira semana cheia", "10 dias" e possivelmente "4 semanas seguidas"
+na mesma festa. É o comportamento correto — a alternativa seria fingir que a
+história anterior não existiu. Os **recordes**, ao contrário, não fazem barulho
+retroativo: a primeira marca é gravada com `seenAt` já preenchido, então ninguém
+recebe festa de recorde só por ter histórico. Foi exatamente para isso que a
+regra existe.
+
+Desta vez a verificação pré-push rodou **os comandos do CI**, não parecidos —
+a lição de 28/08 aplicada.
 
 ---
 
@@ -169,12 +191,13 @@ todas as semanas fechadas em ordem quando volta. Abrir o app *é* o job.
 Limite: reconstrói até **53 semanas** para trás. Ausência maior volta do zero —
 que é onde a regra de ausência longa levaria de qualquer forma.
 
-### O que falta da v1.0 (a linha do roadmap tem mais coisa)
+### O que faltava da v1.0 — FECHADO em 2026-08-31
 
-O que foi entregue é a especificação *Meta semanal, streak de semanas e
-congelamento*. A linha da v1.0 no roadmap resumido também lista, e **isso
-continua em aberto**: ~15 marcos curados, heatmap do ano, prêmio na quebra de
-recorde e *fresh start* no dia 1º.
+O deploy de 28/08 entregou só a especificação *Meta semanal, streak de semanas e
+congelamento*. Os outros quatro itens da linha da v1.0 — ~15 marcos curados,
+heatmap do ano, prêmio na quebra de recorde e *fresh start* no dia 1º — foram
+entregues e subiram em 31/08 (ver o topo deste documento). **Não há item da v1.0
+em aberto.**
 
 ### O deploy (2026-08-28)
 
