@@ -12,9 +12,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# O CI so le o codigo e roda teste: nao publica, nao comenta, nao abre PR.
+# Sem este bloco o GITHUB_TOKEN herda o padrao do repositorio, que pode ser
+# read/write -- credencial de escrita exposta a um step que nao precisa dela.
+permissions:
+  contents: read
+
 jobs:
   backend:
-    name: Backend (typecheck + 70 testes)
+    name: Backend (typecheck + testes)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,9 +50,9 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gym_monkey_test?schema=public
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm
@@ -71,16 +77,16 @@ jobs:
         run: npm run test:e2e
 
   frontend:
-    name: Frontend (build + 92 testes)
+    name: Frontend (lint + testes + build)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm

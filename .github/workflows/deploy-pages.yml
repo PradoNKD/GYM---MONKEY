@@ -11,11 +11,11 @@ on:
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch: {} # permite disparar manualmente pela aba Actions
 
-# Permissoes exigidas pelo deploy oficial do Pages.
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Sem bloco de permissao no nivel do workflow: 'pages: write' e
+# 'id-token: write' sao o poder de publicar no site e de pedir um token OIDC em
+# nome do repositorio. Dar isso ao job de build -- que roda 'npm ci', ou seja,
+# codigo de terceiros -- e entregar a chave de publicacao a quem so precisa
+# compilar. Cada job declara o que usa, logo abaixo.
 
 # Uma publicacao por vez; nao cancela uma que ja esta no ar.
 concurrency:
@@ -26,13 +26,16 @@ jobs:
   build:
     name: Build do frontend
     runs-on: ubuntu-latest
+    # So le o repositorio e sobe um artefato. Nao publica nada.
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm
@@ -42,9 +45,14 @@ jobs:
       # http://localhost:3000 e o site publicado nao falaria com backend nenhum.
       # Defina em Settings > Secrets and variables > Actions > Variables:
       #   VITE_API_URL = https://<seu-servico>.onrender.com
+      # O valor chega por 'env', e nao interpolado no corpo do script: '${{ }}'
+      # e substituido como TEXTO antes de o shell existir, entao um valor com
+      # aspas ou ';' viraria comando. Como variavel de ambiente ele e dado.
       - name: Confere VITE_API_URL
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: |
-          if [ -z "${{ vars.VITE_API_URL }}" ]; then
+          if [ -z "$VITE_API_URL" ]; then
             echo "::error::A variavel de repositorio VITE_API_URL nao esta definida."
             echo "Defina em Settings > Secrets and variables > Actions > Variables com a URL do backend no Render."
             exit 1
@@ -62,7 +70,7 @@ jobs:
         run: npm run build
 
       - name: Prepara artefato do Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: frontend/dist
 
@@ -70,10 +78,16 @@ jobs:
     name: Publica no Pages
     needs: build
     runs-on: ubuntu-latest
+    # Aqui sim: publicar exige 'pages: write', e o deploy-pages troca o token
+    # OIDC ('id-token: write') pela credencial de publicacao.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

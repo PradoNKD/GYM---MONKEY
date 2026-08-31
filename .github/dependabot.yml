@@ -1,0 +1,38 @@
+# Pinar as actions por SHA (exigencia de seguranca: tag e mutavel, commit nao)
+# tem um custo: o SHA nunca mais muda sozinho, nem quando a versao nova conserta
+# uma falha. Sem este arquivo, a correcao de hoje vira o problema de daqui a um
+# ano. O Dependabot reabre a porta de um jeito controlado -- ele atualiza o SHA
+# E o comentario da versao, e o CI decide se passa.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'ci'
+
+  # Backend e frontend tem package.json separados, entao sao duas entradas.
+  # Agrupadas para nao virar uma enxurrada de PR de um pacote cada.
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      producao:
+        dependency-type: production
+      desenvolvimento:
+        dependency-type: development
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      producao:
+        dependency-type: production
+      desenvolvimento:
+        dependency-type: development
