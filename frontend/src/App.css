@@ -928,3 +928,129 @@
   color: var(--texto-3);
   overflow-wrap: anywhere;
 }
+
+/* --- Mapa do ano (v1.0) --- */
+/* Ausencia e FUNDO, nunca alerta: dia sem treino usa a mesma cor neutra do
+   resto da tela. Nada de vermelho -- a grade nao serve para cobrar. */
+
+.mapa {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--superficie-2);
+}
+
+.mapa-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mapa-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.mapa-total {
+  font-size: 0.7rem;
+  color: var(--texto-2);
+}
+
+/* A grade rola dentro do proprio card; a pagina nunca rola de lado. */
+.mapa-rolagem {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.mapa-grade {
+  display: flex;
+  gap: 6px;
+  width: max-content;
+}
+
+.mapa-dias-semana {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  gap: 3px;
+  /* Alinha com as colunas, que tem a faixa de meses em cima. */
+  padding-top: 15px;
+}
+
+.mapa-dia-semana {
+  font-size: 0.55rem;
+  line-height: 12px;
+  color: var(--texto-2);
+}
+
+.mapa-colunas {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mapa-meses {
+  display: flex;
+  gap: 3px;
+  height: 12px;
+}
+
+.mapa-mes {
+  width: 12px;
+  font-size: 0.55rem;
+  line-height: 12px;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+
+.mapa-semanas {
+  display: flex;
+  gap: 3px;
+}
+
+.mapa-semana {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  gap: 3px;
+}
+
+.mapa-celula {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--neutro);
+  border: 1px solid var(--borda);
+}
+
+.mapa-celula--n1 {
+  background: var(--marca-suave);
+  border-color: var(--marca-suave);
+}
+
+.mapa-celula--n2 {
+  background: var(--marca);
+  border-color: var(--marca);
+}
+
+/* Dia que ainda nao aconteceu: nao e "dia sem treino", entao nem aparece. */
+.mapa-celula--futuro {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mapa-legenda {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 0.6rem;
+  color: var(--texto-2);
+}

@@ -22,7 +22,7 @@ regras de integridade no servidor. Na **v1.0** o número principal da home passo
 a ser a **meta semanal** (com streak de semanas e congelamento); a streak diária
 virou recorde histórico.
 
-**Qualidade:** 485 testes automatizados (291 no backend, 194 no frontend),
+**Qualidade:** 516 testes automatizados (304 no backend, 212 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
 **Validar antes de subir:** [AMBIENTE-DE-TESTE](AMBIENTE-DE-TESTE.md) levanta o
@@ -50,8 +50,9 @@ pedido dos usuários: no check-out dá pra marcar o que treinou, o esforço de 1
 5 e uma anotação curta — tudo opcional, e nada disso entra em contagem. A Fase B
 (catálogo de exercícios, séries, cargas) só se esta mostrar adesão real.
 
-O próximo passo de código é o resto da linha v1.0 (marcos, heatmap do ano,
-prêmio na quebra de recorde) ou pular para a **v1.1**.
+O **mapa do ano** (grade de dias treinados) entrou em 2026-08-31. Da linha v1.0
+faltam os marcos curados, o prêmio na quebra de recorde e o *fresh start* do dia
+1º — nenhum com especificação escrita.
 
 Estado detalhado, pendências manuais e o escopo das próximas versões vivem em
 [PROXIMOS-PASSOS.md](PROXIMOS-PASSOS.md), na seção **Estado atual — onde

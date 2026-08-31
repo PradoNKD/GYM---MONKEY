@@ -13,11 +13,13 @@ import {
   alternarTreino,
   anotarSessao,
   ApiError,
+  buscarMapa,
   buscarSessoes,
   corrigirSessao,
 } from "./api";
 import { RegistroTreino, ResumoDoRegistro } from "./RegistroTreino";
 import { BotaoTema } from "./BotaoTema";
+import { MapaDoAno } from "./MapaDoAno";
 import { MetaSemana } from "./MetaSemana";
 import { useAuth } from "./AuthContext";
 import {
@@ -30,7 +32,12 @@ import {
   rotuloDoDia,
   temFimConfiavel,
 } from "./calculos";
-import type { PaginaSessoes, RegistroTreinoEntrada, Sessao } from "./types";
+import type {
+  MapaDoAno as Mapa,
+  PaginaSessoes,
+  RegistroTreinoEntrada,
+  Sessao,
+} from "./types";
 
 /** So o primeiro nome: o header do celular nao tem largura pra "Sair (Nome Sobrenome)". */
 function primeiroNome(nome: string | undefined): string {
@@ -40,6 +47,7 @@ function primeiroNome(nome: string | undefined): string {
 export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
   const [pagina, setPagina] = useState<PaginaSessoes | null>(null);
+  const [mapa, setMapa] = useState<Mapa | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -68,7 +76,13 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const carregar = useCallback(async () => {
     if (!token) return;
     try {
-      setPagina(await buscarSessoes(token));
+      // Numa ida so: o mapa muda exatamente quando o historico muda.
+      const [proxima, novoMapa] = await Promise.all([
+        buscarSessoes(token),
+        buscarMapa(token),
+      ]);
+      setPagina(proxima);
+      setMapa(novoMapa);
     } catch (error) {
       setErro(
         error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico",
@@ -403,6 +417,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
         onAlterarMeta={trocarMeta}
         salvandoMeta={salvandoMeta}
       />
+
+      <MapaDoAno mapa={mapa} />
 
       {erro && <p className="auth-erro">{erro}</p>}
       {sucesso && (

@@ -16,6 +16,7 @@ import {
   DURACAO_MIN_MIN,
   ehContabil,
 } from './regras';
+import { janelaDoMapa } from './mapa';
 import {
   ESFORCO_MAX,
   ESFORCO_MIN,
@@ -352,6 +353,56 @@ export class SessionsService {
     ]);
 
     return { ...pagina, resumo };
+  }
+
+  /**
+   * Mapa dos dias treinados, para a grade do ano.
+   *
+   * Devolve SO os dias com treino contavel: ausencia e fundo neutro na tela,
+   * nao dado. Assim a resposta e curta mesmo com um ano de janela, e a tela nao
+   * precisa filtrar nada.
+   */
+  async mapa(userId: string) {
+    const user = await this.usuario(userId);
+    const hoje = chaveDoDia(this.agora(), user.timezone);
+
+    const primeiro = await this.prisma.workoutSession.findFirst({
+      where: { userId, status: SessionStatus.COMPLETED },
+      orderBy: { dayKey: 'asc' },
+      select: { dayKey: true },
+    });
+
+    const { inicio, fim } = janelaDoMapa(primeiro?.dayKey ?? null, hoje);
+
+    const agrupados = await this.prisma.workoutSession.groupBy({
+      by: ['dayKey'],
+      where: {
+        userId,
+        status: SessionStatus.COMPLETED,
+        dayKey: { gte: inicio, lte: fim },
+      },
+      _count: { _all: true },
+      _sum: { durationMin: true },
+    });
+
+    const dias = agrupados
+      .map((d) => ({
+        dia: d.dayKey,
+        treinos: d._count._all,
+        minutos: d._sum.durationMin ?? 0,
+      }))
+      .sort((a, b) => a.dia.localeCompare(b.dia));
+
+    return {
+      inicio,
+      fim,
+      dias,
+      total: {
+        dias: dias.length,
+        treinos: dias.reduce((t, d) => t + d.treinos, 0),
+        minutos: dias.reduce((t, d) => t + d.minutos, 0),
+      },
+    };
   }
 
   /**

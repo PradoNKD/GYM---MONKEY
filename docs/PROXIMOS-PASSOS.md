@@ -13,7 +13,46 @@ Documento visual completo:
 
 ---
 
-## Estado atual — onde paramos (2026-08-28)
+## Estado atual — onde paramos (2026-08-31)
+
+### Mapa do ano — ENTREGUE
+
+A grade de dias treinados, no estilo do heatmap do GitHub, logo abaixo do card
+da meta. `GET /sessions/mapa` — **só leitura, sem migration**.
+
+A decisão que importa aqui não é técnica: **um ano inteiro de quadradinhos
+vazios, para quem começou faz um mês, lê como fracasso.** Por isso:
+
+- A janela **começa na semana do primeiro treino da pessoa**, não em 1º de
+  janeiro. Quem nunca treinou vê só a semana corrente, e não um ano de vazio.
+- Teto de 52 semanas, para a grade não ficar ilegível em celular.
+- **Ausência é fundo neutro, nunca alerta.** Nada de vermelho em dia sem treino
+  — a grade não serve para cobrar. Tem teste garantindo isso.
+- `fim` é **hoje**, não o domingo da semana corrente: dia que ainda não
+  aconteceu não é "dia sem treino", e aparece em branco.
+- Três níveis de intensidade só (sem treino / 1 treino / 2+). Um degradê fino
+  sugeriria uma quantidade que o dado não tem — quase todo dia treinado tem
+  exatamente um treino.
+
+A resposta traz **só os dias com treino contável**; o resto é fundo na tela.
+Isso mantém o payload curto mesmo com um ano de janela.
+
+Onde mora: `backend/src/sessions/mapa.ts` (a janela, pura),
+`frontend/src/mapa.ts` (as colunas, puro) e `frontend/src/MapaDoAno.tsx`.
+
+Suíte: **304 no backend** (120 unitários + 184 e2e) e **212 no frontend**.
+
+### O que ainda falta da linha v1.0
+
+~15 marcos curados, prêmio na quebra de recorde e *fresh start* no dia 1º.
+Nenhum tem especificação escrita. Sobre os marcos, fica registrada a ressalva:
+escolher 15 marcos bons é mais exercício de design do que de código, e é o
+terreno clássico de gamificação onde valem as restrições permanentes deste
+produto — melhor decidir vendo o comportamento real do grupo.
+
+---
+
+## Estado anterior — v1.0 e Fase A (2026-08-28)
 
 ### Registro de treino, Fase A — ENTREGUE
 
@@ -769,7 +808,7 @@ de verificar a aprovação.
 
 | Versão | Foco | Itens principais |
 |---|---|---|
-| **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento~~, ~~recorde pessoal~~ + prêmio na quebra, ~15 marcos curados, heatmap do ano, ~~*fresh start* na segunda~~ e no dia 1º — riscado = entregue em 2026-08-28 |
+| **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento~~, ~~recorde pessoal~~ + prêmio na quebra, ~15 marcos curados, ~~heatmap do ano~~, ~~*fresh start* na segunda~~ e no dia 1º — riscado = entregue (28/08 e 31/08) |
 | **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + **dark mode (pedido explícito)**, onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |

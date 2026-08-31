@@ -1136,4 +1136,99 @@ describe('Sessions API (e2e)', () => {
       });
     });
   });
+  describe('GET /sessions/mapa (grade do ano)', () => {
+    it('sem token -> 401', async () => {
+      await request(server).get('/sessions/mapa').expect(401);
+    });
+
+    it('a rota nao e confundida com /sessions/:id', async () => {
+      const { token } = await novoUsuario();
+
+      const r = await request(server)
+        .get('/sessions/mapa')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(r.body).toHaveProperty('dias');
+      expect(r.body).toHaveProperty('total');
+    });
+
+    it('devolve so os dias com treino contavel, com contagem e minutos', async () => {
+      const { user, token } = await novoUsuario();
+      await prisma.workoutSession.createMany({
+        data: [
+          {
+            userId: user.id,
+            startedAt: new Date('2026-08-24T15:00:00Z'),
+            endedAt: new Date('2026-08-24T16:00:00Z'),
+            durationMin: 60,
+            status: SessionStatus.COMPLETED,
+            dayKey: '2026-08-24',
+          },
+          {
+            userId: user.id,
+            startedAt: new Date('2026-08-24T19:00:00Z'),
+            endedAt: new Date('2026-08-24T19:40:00Z'),
+            durationMin: 40,
+            status: SessionStatus.COMPLETED,
+            dayKey: '2026-08-24',
+          },
+          // Curta: fica no historico, fora da grade.
+          {
+            userId: user.id,
+            startedAt: new Date('2026-08-25T15:00:00Z'),
+            endedAt: new Date('2026-08-25T15:03:00Z'),
+            durationMin: 3,
+            status: SessionStatus.SHORT,
+            dayKey: '2026-08-25',
+          },
+        ],
+      });
+
+      const r = await request(server)
+        .get('/sessions/mapa')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(r.body.dias).toEqual([{ dia: '2026-08-24', treinos: 2, minutos: 100 }]);
+      expect(r.body.total).toEqual({ dias: 1, treinos: 2, minutos: 100 });
+    });
+
+    // A regra que impede a grade de virar vergonha.
+    it('a janela comeca no primeiro treino, nao em 1o de janeiro', async () => {
+      const { user, token } = await novoUsuario();
+      await prisma.workoutSession.create({
+        data: {
+          userId: user.id,
+          startedAt: new Date('2026-08-26T15:00:00Z'),
+          endedAt: new Date('2026-08-26T16:00:00Z'),
+          durationMin: 60,
+          status: SessionStatus.COMPLETED,
+          dayKey: '2026-08-26',
+        },
+      });
+
+      const r = await request(server)
+        .get('/sessions/mapa')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      // Segunda da semana de 26/08.
+      expect(r.body.inicio).toBe('2026-08-24');
+    });
+
+    it('nao mistura treino de outra pessoa', async () => {
+      const a = await novoUsuario();
+      const b = await novoUsuario();
+      await semearSessoes(a.user.id, 3);
+
+      const r = await request(server)
+        .get('/sessions/mapa')
+        .set('Authorization', `Bearer ${b.token}`)
+        .expect(200);
+
+      expect(r.body.dias).toEqual([]);
+      expect(r.body.total.dias).toBe(0);
+    });
+  });
 });

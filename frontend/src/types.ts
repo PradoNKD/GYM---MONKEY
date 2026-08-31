@@ -158,6 +158,26 @@ export interface PaginaSessoes {
   resumo: ResumoSessoes;
 }
 
+/** Um dia com treino contavel, para a grade do ano. */
+export interface DiaDoMapa {
+  dia: string;
+  treinos: number;
+  minutos: number;
+}
+
+/**
+ * Mapa dos dias treinados. Vem so com os dias QUE TIVERAM treino: ausencia e
+ * fundo neutro na tela, nao dado.
+ */
+export interface MapaDoAno {
+  /** Segunda-feira da primeira semana exibida. */
+  inicio: string;
+  /** Hoje, no fuso da pessoa. Dia que nao aconteceu nao e dia sem treino. */
+  fim: string;
+  dias: DiaDoMapa[];
+  total: { dias: number; treinos: number; minutos: number };
+}
+
 export interface Correcao {
   id: string;
   reason: string;

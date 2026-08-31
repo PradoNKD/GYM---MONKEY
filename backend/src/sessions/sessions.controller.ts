@@ -51,6 +51,13 @@ export class SessionsController {
     return this.semanasService.historico(user.id);
   }
 
+  // Grade de dias treinados. Rota propria porque a home carrega isso uma vez e
+  // nao a cada pagina do historico.
+  @Get('mapa')
+  map(@CurrentUser() user: AuthenticatedUser) {
+    return this.sessionsService.mapa(user.id);
+  }
+
   // Trocar a meta so vale da semana seguinte em diante -- a regra mora no
   // servico, a rota so encaminha.
   @Put('meta')

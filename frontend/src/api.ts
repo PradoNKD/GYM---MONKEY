@@ -1,6 +1,7 @@
 import type {
   AuthResponse,
   Correcao,
+  MapaDoAno,
   MetaSemanal,
   PaginaSessoes,
   RegisterResponse,
@@ -135,6 +136,11 @@ export function alterarMeta(token: string, meta: number) {
     token,
     body: JSON.stringify({ meta }),
   });
+}
+
+/** Grade de dias treinados. Carregada uma vez, fora da paginacao do historico. */
+export function buscarMapa(token: string) {
+  return request<MapaDoAno>("/sessions/mapa", { token });
 }
 
 export function buscarSemanas(token: string) {

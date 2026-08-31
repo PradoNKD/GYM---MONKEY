@@ -3,7 +3,13 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PontoScreen } from "./PontoScreen";
 import { ApiError } from "./api";
-import type { MetaSemanal, PaginaSessoes, Sessao, StatusSessao } from "./types";
+import type {
+  MapaDoAno,
+  MetaSemanal,
+  PaginaSessoes,
+  Sessao,
+  StatusSessao,
+} from "./types";
 
 const logout = vi.fn();
 
@@ -26,11 +32,27 @@ vi.mock("./api", async () => {
     corrigirSessao: vi.fn(),
     alterarMeta: vi.fn(),
     anotarSessao: vi.fn(),
+    buscarMapa: vi.fn(),
   };
 });
 
-const { buscarSessoes, alternarTreino, corrigirSessao, alterarMeta, anotarSessao } =
-  await import("./api");
+const {
+  buscarSessoes,
+  alternarTreino,
+  corrigirSessao,
+  alterarMeta,
+  anotarSessao,
+  buscarMapa,
+} = await import("./api");
+
+function mapaVazio(): MapaDoAno {
+  return {
+    inicio: "2026-08-24",
+    fim: "2026-08-30",
+    dias: [],
+    total: { dias: 0, treinos: 0, minutos: 0 },
+  };
+}
 
 const REGRAS = {
   duracaoMinimaMin: 20,
@@ -95,6 +117,7 @@ const CHAVE_HOJE = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje
 describe("PontoScreen (sessoes)", () => {
   beforeEach(() => {
     vi.mocked(buscarSessoes).mockReset().mockResolvedValue(pagina());
+    vi.mocked(buscarMapa).mockReset().mockResolvedValue(mapaVazio());
     vi.mocked(alternarTreino).mockReset();
     vi.mocked(corrigirSessao).mockReset();
     logout.mockReset();
