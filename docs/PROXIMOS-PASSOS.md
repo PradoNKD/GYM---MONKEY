@@ -42,13 +42,48 @@ Onde mora: `backend/src/sessions/mapa.ts` (a janela, pura),
 
 Suíte: **304 no backend** (120 unitários + 184 e2e) e **212 no frontend**.
 
-### O que ainda falta da linha v1.0
+### Conquistas: marcos, recordes e fresh start — ENTREGUE
 
-~15 marcos curados, prêmio na quebra de recorde e *fresh start* no dia 1º.
-Nenhum tem especificação escrita. Sobre os marcos, fica registrada a ressalva:
-escolher 15 marcos bons é mais exercício de design do que de código, e é o
-terreno clássico de gamificação onde valem as restrições permanentes deste
-produto — melhor decidir vendo o comportamento real do grupo.
+Os três itens que faltavam viraram **um sistema só**, porque marcos e recordes
+compartilham a mecânica — o que muda é se o valor é fixo ou pode melhorar. Uma
+tabela `Achievement`, avaliada preguiçosamente na leitura de `/sessions`, como o
+fechamento semanal.
+
+**16 marcos**, em escada, para sempre haver um próximo degrau visível:
+primeiro treino, primeira semana cheia, primeiro mês, 10/25/50/100/200 dias,
+4/6/12/26/52 semanas seguidas, 24 horas somadas, e — os dois que mais importam —
+`REPAROU` e `RECOMECOU`.
+
+**Por que premiar quem volta:** um catálogo que só premia a sequência perfeita
+diz a quem falhou que não há mais nada a ganhar, que é exatamente quando a
+pessoa desiste. Voltar depois de um mês fora é o comportamento mais difícil e o
+que o produto mais quer.
+
+**3 recordes**: mais semanas seguidas, mais dias seguidos, semana mais cheia.
+A **primeira marca não vira festa** — comemorar "1 dia seguido" no primeiro
+treino seria barulho em cima de um marco que já está comemorando a mesma coisa.
+Só a superação comemora.
+
+`seenAt` guarda se a festa já aconteceu. Sem ele, a tela comemoraria o mesmo
+marco em toda visita. Se o `POST /sessions/conquistas/vistas` falhar, a festa
+reaparece depois — é o erro certo a cometer: comemorar duas vezes incomoda menos
+que nunca comemorar.
+
+**Fresh start** no 1º do mês e do ano (Dai, Milkman & Riis, *Management Science*
+2014): marcos temporais separam a pessoa de quem ela era antes. A segunda já
+ganha isso de graça, porque a semana reinicia. O texto **nunca menciona o que
+ficou para trás**.
+
+Restrições que valem em cada linha de `conquistas.ts`, e estão testadas: nada
+compara com outra pessoa; nada pune; zero dado corporal ou clínico; e o que
+ainda não foi conquistado aparece como progresso, nunca como dívida.
+
+Rotas: `GET /sessions/conquistas` e `POST /sessions/conquistas/vistas`. O resumo
+de `/sessions` já traz `conquistas` e `freshStart`, para a festa aparecer no
+mesmo instante do check-out.
+
+**A v1.0 está completa.** Suíte: **339 no backend** (144 unitários + 195 e2e) e
+**229 no frontend**.
 
 ---
 
@@ -808,7 +843,7 @@ de verificar a aprovação.
 
 | Versão | Foco | Itens principais |
 |---|---|---|
-| **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento~~, ~~recorde pessoal~~ + prêmio na quebra, ~15 marcos curados, ~~heatmap do ano~~, ~~*fresh start* na segunda~~ e no dia 1º — riscado = entregue (28/08 e 31/08) |
+| **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, 16 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º~~ — **COMPLETA** (28/08 e 31/08) |
 | **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + **dark mode (pedido explícito)**, onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |

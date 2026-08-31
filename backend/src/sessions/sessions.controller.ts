@@ -13,6 +13,7 @@ import {
 import { Role } from '@prisma/client';
 import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ConquistasService } from './conquistas.service';
 import { AlterarMetaDto } from './dto/alterar-meta.dto';
 import { AnotarSessaoDto } from './dto/anotar-sessao.dto';
 import { CorrigirSessaoDto } from './dto/corrigir-sessao.dto';
@@ -26,6 +27,7 @@ export class SessionsController {
   constructor(
     private readonly sessionsService: SessionsService,
     private readonly semanasService: SemanasService,
+    private readonly conquistasService: ConquistasService,
   ) {}
 
   // Historico paginado + streak e resumo da semana ja calculados no servidor,
@@ -56,6 +58,18 @@ export class SessionsController {
   @Get('mapa')
   map(@CurrentUser() user: AuthenticatedUser) {
     return this.sessionsService.mapa(user.id);
+  }
+
+  // Catalogo inteiro: o que ja foi conquistado e o que ainda falta.
+  @Get('conquistas')
+  achievements(@CurrentUser() user: AuthenticatedUser) {
+    return this.conquistasService.listar(user.id);
+  }
+
+  // "Ja vi a festa". Sem isto a tela comemoraria o mesmo marco toda visita.
+  @Post('conquistas/vistas')
+  seeAchievements(@CurrentUser() user: AuthenticatedUser) {
+    return this.conquistasService.marcarVistas(user.id);
   }
 
   // Trocar a meta so vale da semana seguinte em diante -- a regra mora no

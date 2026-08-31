@@ -132,6 +132,45 @@ export interface SemanaFechada {
   streakDepois: number;
 }
 
+export type TipoDeConquista = "MARCO" | "RECORDE";
+
+/** Uma conquista recem-desbloqueada, pronta para a tela comemorar. */
+export interface ConquistaNova {
+  code: string;
+  kind: TipoDeConquista;
+  nome: string;
+  descricao: string | null;
+  unidade: string | null;
+  valor: number | null;
+  em: string;
+}
+
+export interface ResumoDeConquistas {
+  /** Ainda nao comemoradas. A tela faz a festa e avisa o servidor. */
+  novas: ConquistaNova[];
+  /** Quantos marcos ja conquistou. */
+  total: number;
+  /** O proximo degrau. Nulo quando a pessoa ja pegou todos. */
+  proximo: { code: string; nome: string; progresso: number; alvo: number } | null;
+}
+
+export interface CatalogoDeConquistas {
+  marcos: {
+    code: string;
+    nome: string;
+    descricao: string;
+    conquistado: boolean;
+    em: string | null;
+  }[];
+  recordes: {
+    code: string;
+    nome: string;
+    unidade: string;
+    valor: number;
+    em: string | null;
+  }[];
+}
+
 export interface ResumoSessoes {
   emAndamento: Sessao | null;
   /** Streak diaria atual. Continua existindo, mas nao e mais o destaque. */
@@ -140,6 +179,9 @@ export interface ResumoSessoes {
   recordeDiario: number;
   semana: { treinos: number; minutos: number };
   meta: MetaSemanal;
+  conquistas: ResumoDeConquistas;
+  /** Marco temporal em que recomecar custa menos. Nulo na maioria dos dias. */
+  freshStart: "ANO" | "MES" | null;
   regras: {
     duracaoMinimaMin: number;
     /** Limites do registro, para a tela nao repetir os numeros do servidor. */

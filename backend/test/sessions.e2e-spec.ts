@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { SessionStatus } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ConquistasService } from '../src/sessions/conquistas.service';
 import { SemanasService } from '../src/sessions/semanas.service';
 import { SessionsService } from '../src/sessions/sessions.service';
 
@@ -26,6 +27,19 @@ class SemanasServiceComRelogio extends SemanasService {
   }
 }
 
+class ConquistasServiceComRelogio extends ConquistasService {
+  constructor(
+    prisma: PrismaService,
+    private readonly relogio: Relogio,
+  ) {
+    super(prisma);
+  }
+
+  protected agora(): Date {
+    return this.relogio.instante;
+  }
+}
+
 // Servico com relogio controlado: as regras dependem de tempo (cooldown,
 // duracao minima, auto-encerramento), entao congelar o "agora" e o que permite
 // testar o comportamento real sem esperar horas.
@@ -34,7 +48,11 @@ class SessionsServiceComRelogio extends SessionsService {
     prisma: PrismaService,
     private readonly relogio = new Relogio(),
   ) {
-    super(prisma, new SemanasServiceComRelogio(prisma, relogio));
+    super(
+      prisma,
+      new SemanasServiceComRelogio(prisma, relogio),
+      new ConquistasServiceComRelogio(prisma, relogio),
+    );
   }
 
   protected agora(): Date {

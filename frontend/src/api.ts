@@ -1,5 +1,6 @@
 import type {
   AuthResponse,
+  CatalogoDeConquistas,
   Correcao,
   MapaDoAno,
   MetaSemanal,
@@ -141,6 +142,20 @@ export function alterarMeta(token: string, meta: number) {
 /** Grade de dias treinados. Carregada uma vez, fora da paginacao do historico. */
 export function buscarMapa(token: string) {
   return request<MapaDoAno>("/sessions/mapa", { token });
+}
+
+// --- Conquistas ---
+
+export function buscarConquistas(token: string) {
+  return request<CatalogoDeConquistas>("/sessions/conquistas", { token });
+}
+
+/** "Ja vi a festa". Sem isto a tela comemoraria o mesmo marco toda visita. */
+export function marcarConquistasVistas(token: string) {
+  return request<{ marcadas: number }>("/sessions/conquistas/vistas", {
+    method: "POST",
+    token,
+  });
 }
 
 export function buscarSemanas(token: string) {

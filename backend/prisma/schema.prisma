@@ -34,6 +34,7 @@ model User {
 
   weeklyGoal    WeeklyGoal?
   weeklyResults WeeklyResult[]
+  achievements  Achievement[]
 }
 
 enum TimeEntryType {
@@ -267,4 +268,41 @@ model WeeklyResult {
   // fecham a mesma semana duas vezes -- a segunda esbarra aqui.
   @@unique([userId, semanaInicio])
   @@index([userId, semanaInicio])
+}
+
+// --- Conquistas: marcos e recordes (v1.0) ---
+
+// Marcos sao fixos (bateu, bateu para sempre); recordes tem valor que melhora.
+// A mesma tabela serve aos dois porque a mecanica e a mesma -- o que muda e se
+// `value` existe e pode subir.
+enum AchievementKind {
+  MARCO
+  RECORDE
+}
+
+model Achievement {
+  id     String @id @default(uuid())
+  userId String
+
+  /// Codigo do catalogo (ver src/sessions/conquistas.ts). O catalogo vive no
+  /// codigo, e nao no banco: sao regras, nao dados do usuario.
+  code String
+  kind AchievementKind
+
+  /// So para RECORDE: a marca atual. Marco nao tem valor, so a data.
+  value Int?
+
+  /// Quando foi conquistado -- ou, no recorde, quando a marca foi superada.
+  unlockedAt DateTime @default(now())
+
+  /// Quando a pessoa VIU a comemoracao. Nulo = ainda tem festa a fazer.
+  /// Sem isso, a tela comemoraria o mesmo marco em toda visita.
+  seenAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Uma linha por conquista por pessoa: e o que torna a avaliacao preguicosa
+  // segura de repetir, como no fechamento semanal.
+  @@unique([userId, code])
+  @@index([userId])
 }

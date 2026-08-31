@@ -16,9 +16,15 @@ import {
   buscarMapa,
   buscarSessoes,
   corrigirSessao,
+  marcarConquistasVistas,
 } from "./api";
 import { RegistroTreino, ResumoDoRegistro } from "./RegistroTreino";
 import { BotaoTema } from "./BotaoTema";
+import {
+  ConviteDeRecomeco,
+  FestaDeConquistas,
+  ResumoConquistas,
+} from "./Conquistas";
 import { MapaDoAno } from "./MapaDoAno";
 import { MetaSemana } from "./MetaSemana";
 import { useAuth } from "./AuthContext";
@@ -48,6 +54,9 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
   const [pagina, setPagina] = useState<PaginaSessoes | null>(null);
   const [mapa, setMapa] = useState<Mapa | null>(null);
+  // A festa vive so na tela: o servidor ja sabe o que foi conquistado, e o que
+  // esta em jogo aqui e apenas se a comemoracao continua visivel.
+  const [festaFechada, setFestaFechada] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -83,6 +92,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
       ]);
       setPagina(proxima);
       setMapa(novoMapa);
+      if (proxima.resumo.conquistas.novas.length > 0) setFestaFechada(false);
     } catch (error) {
       setErro(
         error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico",
@@ -107,6 +117,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const resumo = pagina?.resumo;
   const emAndamento = resumo?.emAndamento ?? null;
   const duracaoMinima = resumo?.regras.duracaoMinimaMin ?? 20;
+  const conquistas = resumo?.conquistas;
+  const novasConquistas = festaFechada ? [] : (conquistas?.novas ?? []);
   const limitesRegistro = resumo?.regras.registro ?? {
     tiposMax: 3,
     esforcoMin: 1,
@@ -163,6 +175,18 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
       );
     } finally {
       setSalvandoMeta(false);
+    }
+  }
+
+  async function fecharFesta() {
+    setFestaFechada(true);
+    if (!token) return;
+
+    try {
+      await marcarConquistasVistas(token);
+    } catch {
+      // Se falhar, a festa reaparece na proxima visita. E o erro certo a
+      // cometer: comemorar duas vezes incomoda menos que nunca comemorar.
     }
   }
 
@@ -417,6 +441,12 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
         onAlterarMeta={trocarMeta}
         salvandoMeta={salvandoMeta}
       />
+
+      <ConviteDeRecomeco tipo={resumo?.freshStart ?? null} />
+
+      <FestaDeConquistas novas={novasConquistas} onFechar={fecharFesta} />
+
+      {conquistas && <ResumoConquistas conquistas={conquistas} />}
 
       <MapaDoAno mapa={mapa} />
 

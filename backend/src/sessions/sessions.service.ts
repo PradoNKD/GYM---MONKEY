@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { SessionSource, SessionStatus, WorkoutType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConquistasService } from './conquistas.service';
+import { freshStart } from './conquistas';
 import { SemanasService } from './semanas.service';
 import {
   AUMENTO_MAX_CORRECAO_MIN,
@@ -32,6 +34,7 @@ export class SessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly semanas: SemanasService,
+    private readonly conquistas: ConquistasService,
   ) {}
 
   // O relogio fica isolado num metodo pra os testes poderem congelar o tempo.
@@ -252,13 +255,17 @@ export class SessionsService {
   }
 
   async resumo(userId: string) {
-    const [emAndamento, diarias, semana, meta] = await Promise.all([
+    const user = await this.usuario(userId);
+    const [emAndamento, diarias, semana, meta, conquistas] = await Promise.all([
       this.emAndamento(userId),
       this.streaks(userId),
       this.resumoSemanal(userId),
       // Fecha as semanas vencidas de passagem: e o que substitui o job
       // agendado, que nao teria como rodar com o backend dormindo.
       this.semanas.resumo(userId),
+      // Idem para as conquistas: avaliar aqui faz a festa aparecer no mesmo
+      // instante do check-out, sem uma segunda ida ao servidor.
+      this.conquistas.avaliar(userId),
     ]);
 
     return {
@@ -268,6 +275,11 @@ export class SessionsService {
       recordeDiario: diarias.recorde,
       semana,
       meta,
+      conquistas,
+      // Marco temporal em que recomecar custa menos (Dai, Milkman & Riis,
+      // Management Science 2014). A segunda ja ganha isso de graca -- a semana
+      // reinicia -- entao aqui so o 1o do mes e o 1o do ano.
+      freshStart: freshStart(chaveDoDia(this.agora(), user.timezone)),
       regras: {
         duracaoMinimaMin: DURACAO_MIN_MIN,
         // A tela nao precisa repetir estes numeros: eles moram aqui e no DTO.

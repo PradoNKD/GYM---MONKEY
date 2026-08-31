@@ -33,6 +33,7 @@ vi.mock("./api", async () => {
     alterarMeta: vi.fn(),
     anotarSessao: vi.fn(),
     buscarMapa: vi.fn(),
+    marcarConquistasVistas: vi.fn(),
   };
 });
 
@@ -43,6 +44,7 @@ const {
   alterarMeta,
   anotarSessao,
   buscarMapa,
+  marcarConquistasVistas,
 } = await import("./api");
 
 function mapaVazio(): MapaDoAno {
@@ -53,6 +55,8 @@ function mapaVazio(): MapaDoAno {
     total: { dias: 0, treinos: 0, minutos: 0 },
   };
 }
+
+const SEM_CONQUISTAS = { novas: [], total: 0, proximo: null };
 
 const REGRAS = {
   duracaoMinimaMin: 20,
@@ -104,6 +108,8 @@ function pagina(over: Partial<PaginaSessoes> = {}): PaginaSessoes {
       recordeDiario: 0,
       semana: { treinos: 0, minutos: 0 },
       meta: meta(),
+      conquistas: SEM_CONQUISTAS,
+      freshStart: null,
       regras: REGRAS,
       ...over.resumo,
     },
@@ -118,6 +124,7 @@ describe("PontoScreen (sessoes)", () => {
   beforeEach(() => {
     vi.mocked(buscarSessoes).mockReset().mockResolvedValue(pagina());
     vi.mocked(buscarMapa).mockReset().mockResolvedValue(mapaVazio());
+    vi.mocked(marcarConquistasVistas).mockReset().mockResolvedValue({ marcadas: 0 });
     vi.mocked(alternarTreino).mockReset();
     vi.mocked(corrigirSessao).mockReset();
     logout.mockReset();
@@ -282,6 +289,95 @@ describe("PontoScreen (sessoes)", () => {
     });
   });
 
+  describe("conquistas", () => {
+    const marcoNovo = {
+      code: "PRIMEIRO_TREINO",
+      kind: "MARCO" as const,
+      nome: "Primeiro treino",
+      descricao: "O começo, que é a parte mais difícil.",
+      unidade: null,
+      valor: null,
+      em: "2026-08-31T12:00:00.000Z",
+    };
+
+    it("comemora a conquista nova que o servidor mandou", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          resumo: {
+            ...pagina().resumo,
+            conquistas: { novas: [marcoNovo], total: 1, proximo: null },
+          },
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByLabelText("Conquista nova")).toBeInTheDocument();
+      expect(screen.getByText("Primeiro treino")).toBeInTheDocument();
+    });
+
+    // Sem avisar o servidor, a mesma festa voltaria em toda visita.
+    it("fechar a festa avisa o servidor e some da tela", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          resumo: {
+            ...pagina().resumo,
+            conquistas: { novas: [marcoNovo], total: 1, proximo: null },
+          },
+        }),
+      );
+
+      render(<PontoScreen />);
+      await screen.findByLabelText("Conquista nova");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Fechar comemoração" }),
+      );
+
+      expect(marcarConquistasVistas).toHaveBeenCalledWith("tok");
+      expect(screen.queryByLabelText("Conquista nova")).not.toBeInTheDocument();
+    });
+
+    it("sem conquista nova, nao ha festa", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+
+      render(<PontoScreen />);
+      await screen.findByRole("button", { name: "Começar treino" });
+
+      expect(screen.queryByLabelText("Conquista nova")).not.toBeInTheDocument();
+    });
+
+    it("mostra o proximo marco", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({
+          resumo: {
+            ...pagina().resumo,
+            conquistas: {
+              novas: [],
+              total: 2,
+              proximo: { code: "DIAS_10", nome: "10 dias de treino", progresso: 4, alvo: 10 },
+            },
+          },
+        }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText("2 marcos")).toBeInTheDocument();
+      expect(screen.getByText("4/10")).toBeInTheDocument();
+    });
+
+    it("o convite de recomeco aparece no 1o do mes", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ resumo: { ...pagina().resumo, freshStart: "MES" } }),
+      );
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText(/Mês novo/)).toBeInTheDocument();
+    });
+  });
+
   describe("troca da meta semanal", () => {
     it("manda a meta nova e recarrega os numeros do servidor", async () => {
       vi.mocked(buscarSessoes).mockResolvedValue(pagina());
@@ -329,6 +425,8 @@ describe("PontoScreen (sessoes)", () => {
             recordeDiario: 9,
             semana: { treinos: 3, minutos: 195 },
             meta: meta({ treinos: 3, faltam: 0, cumprida: true, streakSemanas: 5 }),
+            conquistas: SEM_CONQUISTAS,
+            freshStart: null,
             regras: REGRAS,
           },
         }),
@@ -358,6 +456,8 @@ describe("PontoScreen (sessoes)", () => {
             recordeDiario: 1,
             semana: { treinos: 0, minutos: 0 },
             meta: meta(),
+            conquistas: SEM_CONQUISTAS,
+            freshStart: null,
             regras: REGRAS,
           },
         }),

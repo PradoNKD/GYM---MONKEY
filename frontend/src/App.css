@@ -1054,3 +1054,134 @@
   font-size: 0.6rem;
   color: var(--texto-2);
 }
+
+/* --- Conquistas e fresh start (v1.0) --- */
+/* O que ainda NAO foi conquistado nunca aparece como divida: a barra mostra o
+   quanto ja andou, e nao o quanto falta. */
+
+.festa {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--marca-suave);
+  border: 1px solid var(--marca);
+}
+
+.festa-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.festa-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.festa-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.festa-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--marca-forte);
+}
+
+.festa-item-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.festa-item-texto strong {
+  font-size: 0.8rem;
+  color: var(--texto);
+}
+
+.festa-item-desc {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--texto-3);
+}
+
+.conquistas-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--superficie-2);
+}
+
+.conquistas-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.conquistas-proximo {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.conquistas-proximo-nome {
+  font-size: 0.68rem;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+
+.conquistas-barra {
+  flex: 1;
+  height: 6px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: var(--neutro);
+  overflow: hidden;
+}
+
+.conquistas-barra-cheia {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--marca);
+}
+
+.conquistas-proximo-numero {
+  font-size: 0.65rem;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+
+.fresh-start {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--texto-3);
+  background: var(--neutro);
+  border-radius: 12px;
+}
