@@ -107,6 +107,50 @@ regra existe.
 Desta vez a verificação pré-push rodou **os comandos do CI**, não parecidos —
 a lição de 28/08 aplicada.
 
+### Scan do GitGuard (2026-08-31) — corrigido em `64a9601`
+
+Os 8 findings eram a mesma regra repetida, `github-actions-mutable-action-tag`:
+uma por linha `uses:`. **Tag do Git se move** — quem controlar o repositório da
+action reaponta `v4` e o build seguinte executa outro código, sem commit nosso e
+sem revisão. Aconteceu de verdade com a `tj-actions/changed-files` em março de
+2025. As 8 foram pinadas por SHA de 40 caracteres, com a versão em comentário.
+
+Três coisas que o scanner **não** reportou entraram junto:
+
+1. O CI não tinha bloco `permissions`, então o `GITHUB_TOKEN` herdava o padrão
+   do repositório, que pode ser read/write. Agora é `contents: read`. É o que
+   **limita o estrago** quando a pinagem falhar.
+2. No deploy do Pages, `pages: write` e `id-token: write` valiam para os dois
+   jobs — o de build, que roda `npm ci` (código de terceiros), recebia a chave
+   de publicação sem precisar dela. Movidas para o job de deploy.
+3. `${{ vars.VITE_API_URL }}` era interpolado como **texto** dentro do `run:`,
+   antes de o shell existir. Passa por `env:` agora.
+
+Pinar sem atualizador vira dívida — o SHA não muda nem quando a versão nova
+conserta uma falha. Por isso o [dependabot.yml](../.github/dependabot.yml) entra
+junto: ele atualiza o SHA *e* o comentário da versão, e o CI decide.
+
+**O aviso de `deepmerge-ts` (3 HIGH) fica como está, de propósito.** Chega por
+`@prisma/config` ← `prisma`. Só o CLI do Prisma o alcança, no `migrate deploy`,
+sem entrada de atacante; e o 6.19.3, o mais novo do 6.x, ainda fixa a versão
+vulnerável — o próprio Dependabot não abriu PR, pela mesma razão. Forçar um
+`override` poria uma troca de major transitiva no `&&` que decide se a API sobe:
+trocar um DoS inalcançável por risco de o backend não iniciar é mau negócio.
+
+**Vale lembrar o que este scan não cobre:** Semgrep e busca de segredo não olham
+regra de negócio — nada ali verifica se uma pessoa consegue ler o treino de
+outra. Isso foi a auditoria à mão de 27/08. Relatório limpo não é app seguro.
+
+### Em aberto: 7 PRs do Dependabot
+
+Deixados assim a pedido do dono do produto. Os quatro de action (**#2–#5**) são
+os majors que ficaram **de fora da pinagem de propósito** — misturar "congelar o
+SHA" com "trocar de major" transformaria um conserto de risco zero em mudança
+que pode quebrar o deploy. **#2 e #5 mexem no caminho de publicação: merge um de
+cada vez.** O **#7** (produção do backend, 9 pacotes juntos) é o que pede mais
+cuidado: se o Prisma estiver na lista, separar, porque é o único ali que roda no
+`migrate deploy`.
+
 ---
 
 ## Estado anterior — v1.0 e Fase A (2026-08-28)
