@@ -217,6 +217,49 @@ e `PontoScreen.tsx:106`). Não reprovam — o lint sai com código 0. E são de 
 valor: o do `PontoScreen` é o `carregar()` de busca de dados, e buscar dado em
 effect necessariamente liga o estado de carregando.
 
+### Os quatro PRs de action, mergeados em sequência (2026-09-02)
+
+Fila do Dependabot zerada. Cada um foi mergeado com squash, e os dois do caminho
+de publicação **isolados**, como o registro acima mandava.
+
+| PR | Ação | Commit | CI | Pages |
+|---|---|---|---|---|
+| #3 | `checkout` 4.4.0 → 7.0.1 | `d7237e6` | cancelado (ver abaixo) | verde |
+| #4 | `setup-node` 4.4.0 → 7.0.0 | `0cfd020` | verde | verde |
+| #5 | `upload-pages-artifact` 3.0.1 → 5.0.0 | `7a59276` | verde | verde |
+| #2 | `deploy-pages` 4.0.5 → 5.0.0 | `fdae51f` | verde | verde |
+
+Nos dois de publicação a verificação **não** parou no workflow verde: `index`,
+bundle, `manifest.webmanifest` e `sw.js` foram buscados no site e voltaram 200.
+Workflow verde diz que o passo rodou, não que o site está servindo. O hash do
+bundle não mudou (`index-DuGwuMc8.js`), o que é o esperado — mudou o workflow,
+não o código.
+
+**O CI do #3 saiu `cancelled`, e a causa fui eu.** O CI tem
+`cancel-in-progress: true` agrupado por workflow+ref; mergear o #4 logo em
+seguida cancelou o run do #3. Não houve risco pendente (o Pages do #3 fechou
+verde e o run do `0cfd020` cobre os dois commits), mas o sinal **isolado** do #3
+foi perdido. A regra de "um de cada vez" só foi de fato respeitada no #5 e no
+#2. Fica anotado: em bump de action, esperar o run fechar antes do próximo
+merge, senão a checagem em série vira checagem em lote sem ninguém decidir isso.
+
+As quatro seguem **fixadas por SHA** com a versão no comentário ao lado, que era
+a exigência que veio do GitGuard.
+
+### Plugin de skills de terceiro — avaliado e descartado (2026-09-02)
+
+Avaliado o [mattpocock/skills](https://github.com/mattpocock/skills) (MIT,
+ativo). **Decisão do dono: não adotar.** Não voltar a propor sem pedido novo.
+
+Registrado porque a avaliação tem valor mesmo com a resposta negativa: as skills
+úteis seriam `tdd`, `diagnosing-bugs` e `grill-with-docs`; `code-review` e
+`handoff` duplicariam o que já existe aqui; e as de ticket/triagem pressupõem um
+board que este projeto não tem. O custo real estava no
+`setup-matt-pocock-skills`, **obrigatório uma vez por repositório**, que escreve
+`CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `docs/agents/` e altera uma seção
+do `CLAUDE.md` — scaffolding em cima de uma convenção de documentação que já
+funciona, e em inglês, num projeto que é todo em português.
+
 ### O agrupamento do Dependabot estava errado, e foi consertado
 
 A primeira versão do [dependabot.yml](../.github/dependabot.yml) agrupava só por
@@ -980,7 +1023,10 @@ de verificar a aprovação.
    Medido depois da mudança, duas contas do mesmo IP: Ana errando 7x →
    `401, 401, 401, 401, 401, 429, 429`; Bruno, no mesmo IP, → `401` (passou).
    Ana com o e-mail em caixa alta → `429` (sem cota nova).
-4. **Rotar a senha do Neon** — pendência do dono (ela passou por chat).
+4. ~~**Rotar a senha do Neon**~~ — **FEITO em 2026-08-28**, antes deste scan.
+   Esta linha ficou dizendo "pendência do dono" por descuido: o item já estava
+   resolvido e registrado mais acima. Documento que contradiz a si mesmo é pior
+   que documento incompleto — quem lê não sabe em qual metade acreditar.
 
 ## Roadmap resumido (v1.0 → v2.x)
 
