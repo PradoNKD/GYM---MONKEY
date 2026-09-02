@@ -137,6 +137,15 @@ vulnerável — o próprio Dependabot não abriu PR, pela mesma razão. Forçar 
 `override` poria uma troca de major transitiva no `&&` que decide se a API sobe:
 trocar um DoS inalcançável por risco de o backend não iniciar é mau negócio.
 
+**O `fast-uri` (1 HIGH) no frontend também fica, e pelo mesmo raciocínio.**
+Apareceu no `npm audit` durante a verificação do #8, mas **não veio dele**: já
+estava no lock da `main`. Chega por `vite-plugin-pwa` ← `workbox-build` ← `ajv`,
+ou seja, é ferramenta de **build**. Conferido que não vai para o navegador (não
+aparece em `dist/assets/`), e as falhas são SSRF e confusão de host — precisam de
+uma URI de atacante sendo resolvida em tempo de execução, o que não acontece num
+gerador de service worker. Reavaliar quando o `vite-plugin-pwa` subir o
+`workbox-build`.
+
 **Vale lembrar o que este scan não cobre:** Semgrep e busca de segredo não olham
 regra de negócio — nada ali verifica se uma pessoa consegue ler o treino de
 outra. Isso foi a auditoria à mão de 27/08. Relatório limpo não é app seguro.
@@ -152,10 +161,28 @@ comandos parecidos. Resultado:
 | #3 | `checkout` 4.4.0 → 7.0.1 | seguro, risco revisado |
 | #4 | `setup-node` 4.4.0 → 7.0.0 | seguro, risco revisado |
 | #5 | `upload-pages-artifact` 3.0.1 → 5.0.0 | seguro, risco revisado |
-| #6 | `lucide-react` 1.31 → 1.35 | **verde**: lint, 229 testes, build |
-| #7 | produção do backend: NestJS 12, Prisma 7 | **BLOQUEADO** |
-| #8 | dev do frontend: TypeScript 7, Vite 8.2 | **verde**: lint, 229 testes, build |
-| #9 | dev do backend: NestJS 12, Jest 30, TS 7 | **BLOQUEADO** |
+| #6 | `lucide-react` 1.31 → 1.37 | **MERGEADO** (`7acb6dd`) |
+| #7 | produção do backend: NestJS 12, Prisma 7 | **FECHADO** — bloqueado |
+| #8 | dev do frontend: TypeScript 7, Vite 8.2 | **MERGEADO** (`cf45bd9`) |
+| #9 | dev do backend: NestJS 12, Jest 30, TS 7 | **FECHADO** — bloqueado |
+
+**Desfecho (2026-09-02):** #6 e #8 mergeados; #7 e #9 fechados, cada um com o
+motivo registrado no próprio PR. O CI do branch do #7 fechou em `failure`, o que
+confirma o diagnóstico: não foram fechados por precaução, eles quebravam mesmo.
+
+Antes do merge, o #6 foi **reverificado** — e valeu a pena. A tabela acima dizia
+`1.31 → 1.35`, mas o PR estava em **1.37**: o Dependabot o atualizou às 16:20Z,
+antes da rodada de teste, e o número velho foi copiado da tabela do dia 31. O
+veredito se sustentou (lint, 229 testes e build verdes em 1.37), mas por um turno
+este documento afirmou verde sobre uma versão que não era a do PR. **Registrar o
+resultado sem registrar a versão exata é registro que envelhece mal.**
+
+O #8 também foi verificado **depois** do merge do #6, não antes: os dois mexiam
+em `frontend/package.json` e no mesmo `package-lock.json`. O GitHub ainda dizia
+`MERGEABLE` porque não havia recalculado, e um lockfile mesclado por texto pode
+sair válido e semanticamente errado — a mesma classe de falha do #7/#9. O merge
+foi ensaiado localmente e submetido a `npm ci` (que reprova lock fora de sincronia)
+antes de valer no GitHub.
 
 **#7 e #9 não podem ser mergeados, nem juntos nem separados.** O motivo é
 `@nestjs/throttler`: a versão mais nova que existe (6.5.0) declara peer
