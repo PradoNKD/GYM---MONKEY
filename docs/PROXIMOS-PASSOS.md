@@ -141,15 +141,64 @@ trocar um DoS inalcançável por risco de o backend não iniciar é mau negócio
 regra de negócio — nada ali verifica se uma pessoa consegue ler o treino de
 outra. Isso foi a auditoria à mão de 27/08. Relatório limpo não é app seguro.
 
-### Em aberto: 7 PRs do Dependabot
+### Os 8 PRs do Dependabot, testados um por um (2026-09-02)
 
-Deixados assim a pedido do dono do produto. Os quatro de action (**#2–#5**) são
-os majors que ficaram **de fora da pinagem de propósito** — misturar "congelar o
-SHA" com "trocar de major" transformaria um conserto de risco zero em mudança
-que pode quebrar o deploy. **#2 e #5 mexem no caminho de publicação: merge um de
-cada vez.** O **#7** (produção do backend, 9 pacotes juntos) é o que pede mais
-cuidado: se o Prisma estiver na lista, separar, porque é o único ali que roda no
-`migrate deploy`.
+Cada um foi aplicado num branch local e submetido aos **comandos do CI**, não a
+comandos parecidos. Resultado:
+
+| PR | O que traz | Veredito |
+|---|---|---|
+| #2 | `deploy-pages` 4.0.5 → 5.0.0 | seguro, risco revisado |
+| #3 | `checkout` 4.4.0 → 7.0.1 | seguro, risco revisado |
+| #4 | `setup-node` 4.4.0 → 7.0.0 | seguro, risco revisado |
+| #5 | `upload-pages-artifact` 3.0.1 → 5.0.0 | seguro, risco revisado |
+| #6 | `lucide-react` 1.31 → 1.35 | **verde**: lint, 229 testes, build |
+| #7 | produção do backend: NestJS 12, Prisma 7 | **BLOQUEADO** |
+| #8 | dev do frontend: TypeScript 7, Vite 8.2 | **verde**: lint, 229 testes, build |
+| #9 | dev do backend: NestJS 12, Jest 30, TS 7 | **BLOQUEADO** |
+
+**#7 e #9 não podem ser mergeados, nem juntos nem separados.** O motivo é
+`@nestjs/throttler`: a versão mais nova que existe (6.5.0) declara peer
+`@nestjs/common` só até `^11.0.0`. NestJS 12 não tem como entrar enquanto o
+throttler não sair. E ele não é removível — é o rate limit que protege o login,
+a trava que veio da auditoria de 27/08. Forçar com `--legacy-peer-deps` seria
+trocar um bump por risco de o limitador de login parar calado.
+
+Separar o Prisma 7 do resto também não resolve, e o motivo é maior que o bump:
+**o Prisma 7 removeu `datasource.url` do schema.** A URL passa a viver em
+`prisma.config.ts` e o `PrismaClient` precisa receber um `adapter`. Isso mexe em
+`PrismaService`, no setup do e2e, no script de semear e no `migrate deploy`. Pior:
+o `tsconfig.json` do backend não restringe a `src/`, e o `start:prod` é
+`node dist/main` — **um `prisma.config.ts` na raiz entraria na compilação e o
+`dist/main.js` viraria `dist/src/main.js`, derrubando a API em produção.** É a
+mesma armadilha de `.ts` fora de `src/` que já derrubou o start antes.
+
+E o Prisma 7 **não** resolve o aviso de `deepmerge-ts`: o `@prisma/config@7.10.0`
+ainda fixa a `7.1.5`. Ou seja, a migração custa código e não paga nada em
+segurança. **Não é agora.**
+
+Riscos que foram checados nos PRs de action, e estão limpos: o cache automático
+do `setup-node` v5 só liga com o campo `packageManager` no `package.json`, que
+não existe em nenhum dos dois; a v4 do `upload-pages-artifact` deixou de incluir
+arquivos ocultos, e o `dist/` não tem nenhum nem precisa de `.nojekyll`; e o
+bloqueio de fork PR do `checkout` v7 vale para `pull_request_target` e
+`workflow_run`, que este repositório não usa. **#2 e #5 mexem no caminho de
+publicação: merge um de cada vez**, para saber qual quebrou se quebrar.
+
+O #8 traz 2 avisos novos do oxlint 1.80 (`set-state-in-effect` em `tema.ts:150`
+e `PontoScreen.tsx:106`). Não reprovam — o lint sai com código 0. E são de baixo
+valor: o do `PontoScreen` é o `carregar()` de busca de dados, e buscar dado em
+effect necessariamente liga o estado de carregando.
+
+### O agrupamento do Dependabot estava errado, e foi consertado
+
+A primeira versão do [dependabot.yml](../.github/dependabot.yml) agrupava só por
+`dependency-type`. O efeito foi partir o major do NestJS em dois PRs — `core` no
+de produção, `testing` no de desenvolvimento — que **se anulavam** (um exige o
+outro) e ainda conflitavam no `package-lock.json`. Agora `@nestjs/*` e
+`prisma`/`@prisma/*` têm grupo próprio, e o frontend tem grupo para
+`react`/`@types/react` pelo mesmo motivo. **Pacote que sobe de major junto
+precisa viver no mesmo grupo.**
 
 ---
 

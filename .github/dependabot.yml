@@ -14,13 +14,27 @@ updates:
       prefix: 'ci'
 
   # Backend e frontend tem package.json separados, entao sao duas entradas.
-  # Agrupadas para nao virar uma enxurrada de PR de um pacote cada.
+  #
+  # Os grupos NAO sao por prod/dev sozinho, e isso foi aprendido errando: a
+  # primeira versao deste arquivo agrupava so por dependency-type, e o Dependabot
+  # partiu o major do NestJS em dois PRs -- @nestjs/core no de producao, e
+  # @nestjs/testing no de desenvolvimento. Como @nestjs/testing@12 exige
+  # @nestjs/core@^12, cada PR sozinho era impossivel de mergear, e juntos
+  # conflitavam no package-lock.json. Pacote que sobe de major junto precisa
+  # viver no mesmo grupo. A ordem importa: o primeiro padrao que casa ganha.
   - package-ecosystem: npm
     directory: /backend
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
     groups:
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+      prisma:
+        patterns:
+          - 'prisma'
+          - '@prisma/*'
       producao:
         dependency-type: production
       desenvolvimento:
@@ -32,6 +46,13 @@ updates:
       interval: monthly
     open-pull-requests-limit: 5
     groups:
+      # Mesmo motivo: react e @types/react precisam subir de major juntos.
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
       producao:
         dependency-type: production
       desenvolvimento:
