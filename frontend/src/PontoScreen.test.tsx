@@ -547,8 +547,9 @@ describe("PontoScreen (sessoes)", () => {
       await irParaHistorico();
 
       expect(await screen.findByText("1h 30min")).toBeInTheDocument();
-      // Pelo papel, nao pelo texto: "Hoje" tambem e o nome da aba, e
-      // getByText acharia os dois.
+      // Pelo papel, nao pelo texto. A colisao original ("Hoje" era nome de
+      // aba E cabecalho de dia) acabou com o rename para "Treino", mas buscar
+      // um cabecalho pelo papel continua sendo o certo: diz o que se quer.
       expect(
         screen.getByRole("heading", { name: "Hoje", level: 3 }),
       ).toBeInTheDocument();
@@ -908,11 +909,11 @@ describe("PontoScreen (sessoes)", () => {
       // Voltar no navegador nao passa pelo React: ele muda o hash e dispara
       // `hashchange`. Se a tela nao ouvir, o botao voltar sai do app inteiro.
       await act(async () => {
-        window.location.hash = "#/hoje";
+        window.location.hash = "#/treino";
       });
 
       expect(await screen.findByText("Fora do treino")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Hoje" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "Treino" })).toHaveAttribute(
         "aria-current",
         "page",
       );
@@ -925,6 +926,36 @@ describe("PontoScreen (sessoes)", () => {
       render(<PontoScreen />);
 
       expect(await screen.findByText("Fora do treino")).toBeInTheDocument();
+    });
+  });
+
+  // Os dois botoes de cada treino sao SO icone -- sem texto ao lado, ao
+  // contrario dos numeros da meta. Eram os unicos realmente indecifraveis.
+  describe("explica os botoes de cada treino", () => {
+    it("diz o que anota e o que corrige, com a regra da correcao", async () => {
+      render(<PontoScreen />);
+      await irParaHistorico();
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: "O que fazem os botoes de cada treino?",
+        }),
+      );
+
+      const dica = await screen.findByRole("tooltip");
+      expect(dica).toHaveTextContent("ANOTA");
+      expect(dica).toHaveTextContent("sem mexer no que conta");
+      // A regra da correcao inteira: so o fim, uma vez, teto de 1h.
+      expect(dica).toHaveTextContent("so o horario de FIM");
+      expect(dica).toHaveTextContent("uma vez por treino");
+      expect(dica).toHaveTextContent("no maximo 1h a mais");
+    });
+
+    it("a explicacao nao aparece sozinha, ocupando a lista", async () => {
+      render(<PontoScreen />);
+      await irParaHistorico();
+      await screen.findByText(/Nenhum treino ainda/);
+
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     });
   });
 

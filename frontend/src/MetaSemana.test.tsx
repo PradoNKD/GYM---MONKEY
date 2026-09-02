@@ -151,10 +151,14 @@ describe("MetaSemana", () => {
 
       const opcoes = screen.getAllByRole("option").map((o) => o.textContent);
       expect(opcoes).toEqual([
-        "3x por semana",
-        "4x por semana",
-        "5x por semana",
-        "6x por semana",
+        // Encurtado de "3x por semana" para "3x": o titulo ao lado ja diz
+        // "Meta da semana", e o seletor precisou de 16px de fonte (senao o
+        // Safari do iOS da zoom ao focar), o que nao caberia com o texto
+        // longo. O contexto completo segue no rotulo acessivel do campo.
+        "3x",
+        "4x",
+        "5x",
+        "6x",
       ]);
     });
 
@@ -192,6 +196,61 @@ describe("MetaSemana", () => {
       montar({}, { salvandoMeta: true });
 
       expect(screen.getByRole("combobox")).toBeDisabled();
+    });
+  });
+
+  // Pedido do dono do produto depois de testar no celular: "eu sei o que o
+  // floco de neve faz porque desenvolvi, outras pessoas nao vao saber".
+  //
+  // ATENCAO A DESVIO: os numeros do texto (2 guardados, +1 a cada 4 semanas)
+  // sao os do servidor -- TOKENS_MAX e SEMANAS_POR_TOKEN em
+  // backend/src/sessions/semanas.ts. A API nao envia essas duas constantes,
+  // entao aqui elas estao escritas a mao. Se mudarem la, este texto mente, e
+  // este teste e o lugar onde isso aparece.
+  describe("explica os conceitos quando alguem pergunta", () => {
+    it("o congelamento: o que faz, quantos da e quanto guarda", async () => {
+      montar({ tokens: 2 });
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "O que e um congelamento?" }),
+      );
+
+      const dica = await screen.findByRole("tooltip");
+      expect(dica).toHaveTextContent("a sua sequencia NAO quebra");
+      expect(dica).toHaveTextContent("1 a cada 4 semanas cumpridas seguidas");
+      expect(dica).toHaveTextContent("no maximo 2");
+    });
+
+    it("as semanas seguidas: contam por semana, e descanso nao quebra", async () => {
+      montar({ streakSemanas: 3 });
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "O que sao semanas seguidas?" }),
+      );
+
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+        "descansar nao quebra nada",
+      );
+    });
+
+    it("a meta: que a troca vale so na proxima semana", async () => {
+      // A regra mais facil de entender errado: trocar a meta no meio da
+      // semana nao facilita nem apaga a semana em andamento.
+      montar({});
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "O que e a meta da semana?" }),
+      );
+
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+        "vale a partir da PROXIMA semana",
+      );
+    });
+
+    it("nenhuma explicacao aparece sem alguem pedir", () => {
+      montar({});
+
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     });
   });
 });

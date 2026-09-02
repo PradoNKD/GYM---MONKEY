@@ -1,4 +1,5 @@
 import { Flame, Snowflake, Target, Timer, Trophy } from "lucide-react";
+import { Dica } from "./Dica";
 import { dataDaChave, formatarMinutos } from "./calculos";
 import type { MetaSemanal } from "./types";
 
@@ -60,6 +61,10 @@ export function MetaSemana({
         <span className="meta-titulo">
           <Target size={15} />
           Meta da semana
+          <Dica
+            rotulo="O que e a meta da semana?"
+            texto="Quantos treinos voce quer fazer por semana, de 3 a 6. A semana vai de segunda a domingo. Mudar a meta vale a partir da PROXIMA semana -- a atual continua com a meta que comecou, para a troca nao apagar nem facilitar o que ja esta em andamento."
+          />
         </span>
 
         <label className="meta-seletor">
@@ -71,7 +76,7 @@ export function MetaSemana({
           >
             {opcoes.map((n) => (
               <option key={n} value={n}>
-                {n}x por semana
+                {n}x
               </option>
             ))}
           </select>
@@ -104,11 +109,19 @@ export function MetaSemana({
           <Flame size={15} className="meta-icone meta-icone--streak" />
           <strong>{meta.streakSemanas}</strong>
           {plural(meta.streakSemanas, "semana seguida", "semanas seguidas")}
+          <Dica
+            rotulo="O que sao semanas seguidas?"
+            texto="Semanas em sequencia em que voce bateu a meta. Conta por SEMANA, nao por dia: descansar nao quebra nada, desde que a meta da semana feche."
+          />
         </span>
         <span className="meta-numero">
           <Snowflake size={15} className="meta-icone" />
           <strong>{meta.tokens}</strong>
           {plural(meta.tokens, "congelamento", "congelamentos")}
+          <Dica
+            rotulo="O que e um congelamento?"
+            texto="Se voce nao bater a meta numa semana, um congelamento e gasto sozinho e a sua sequencia NAO quebra -- ela fica parada, sem subir. Voce comeca com 2, ganha mais 1 a cada 4 semanas cumpridas seguidas e pode guardar no maximo 2. Nao gasta se nao houver sequencia a proteger."
+          />
         </span>
         <span className="meta-numero">
           <Timer size={15} className="meta-icone" />

@@ -28,10 +28,10 @@
 }
 
 .card h1 {
-  font-family: "Anton", sans-serif;
-  font-size: 1.6rem;
+  font-family: var(--fonte-titulo);
+  font-size: var(--txt-2xl);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-rotulo);
   color: var(--texto);
   margin-bottom: 0;
   white-space: nowrap;
@@ -51,7 +51,7 @@
 }
 
 .card-header h1 {
-  font-size: 1.3rem;
+  font-size: var(--txt-xl);
 }
 
 /* O botao de tema fica junto da marca, mas deslocado pro canto -- perto o
@@ -80,7 +80,7 @@
 .auth-form input {
   width: 100%;
   padding: 14px 16px;
-  font-size: 1rem;
+  font-size: var(--txt-campo);
   border: 2px solid var(--borda);
   border-radius: 14px;
   outline: none;
@@ -95,7 +95,7 @@
 
 .auth-erro {
   color: var(--perigo);
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   text-align: left;
 }
 
@@ -104,13 +104,13 @@
   background: var(--ok-fundo);
   border-radius: 12px;
   padding: 10px 12px;
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   text-align: left;
 }
 
 .auth-dica {
   color: var(--texto-2);
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   text-align: left;
   margin-top: -6px;
 }
@@ -128,7 +128,7 @@
   border: none;
   color: var(--marca);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   cursor: pointer;
   padding: 4px 6px;
 }
@@ -142,7 +142,7 @@
 }
 
 .status {
-  font-size: 0.9rem;
+  font-size: var(--txt-md);
   font-weight: 700;
   padding: 8px 16px;
   border-radius: 999px;
@@ -196,9 +196,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   color: var(--texto-2);
 }
@@ -206,7 +206,7 @@
 .meta-seletor select {
   padding: 5px 8px;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--txt-campo);
   color: var(--texto);
   background: var(--campo);
   border: 1px solid var(--borda);
@@ -240,14 +240,14 @@
 }
 
 .meta-extra {
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--marca);
 }
 
 .meta-frase {
   margin: 0 0 12px;
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   line-height: 1.35;
   color: var(--texto);
 }
@@ -264,13 +264,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
 }
 
 .meta-numero strong {
-  font-family: "Anton", sans-serif;
-  font-size: 1rem;
+  font-family: var(--fonte-titulo);
+  font-size: var(--txt-campo);
   font-weight: 400;
   color: var(--texto);
 }
@@ -286,7 +286,7 @@
 .meta-aviso {
   margin: 12px 0 0;
   padding: 9px 11px;
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   line-height: 1.35;
   color: var(--texto-3);
   background: var(--neutro);
@@ -303,15 +303,15 @@
   align-items: center;
   gap: 5px;
   margin: 10px 0 0;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
 }
 
 .btn {
   width: 100%;
   padding: 18px;
-  font-family: "Anton", sans-serif;
-  font-size: 1.15rem;
+  font-family: var(--fonte-titulo);
+  font-size: var(--txt-lg);
   font-weight: 400;
   border: none;
   border-radius: 999px;
@@ -321,7 +321,7 @@
   color: #ffffff;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-rotulo);
   transition: background-color 0.2s ease, transform 0.1s ease;
   margin-bottom: 24px;
 }
@@ -364,10 +364,10 @@
 }
 
 .secao-titulo {
-  font-family: "Anton", sans-serif;
+  font-family: var(--fonte-titulo);
   font-weight: 400;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
+  font-size: var(--txt-campo);
+  letter-spacing: var(--tracking-rotulo);
   color: var(--texto);
   margin-bottom: 8px;
 }
@@ -397,10 +397,10 @@
   z-index: 1;
   background: var(--superficie-2);
   padding: 4px 0 6px;
-  font-family: "Anton", sans-serif;
+  font-family: var(--fonte-titulo);
   font-weight: 400;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  font-size: var(--txt-sm);
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   color: var(--texto-2);
 }
@@ -408,7 +408,7 @@
 .linha-registro {
   padding: 6px 0;
   border-bottom: 1px solid var(--borda);
-  font-size: 0.9rem;
+  font-size: var(--txt-md);
   color: var(--texto-3);
   display: flex;
   align-items: center;
@@ -474,10 +474,10 @@
 }
 
 .admin-voce {
-  font-size: 0.65rem;
+  font-size: var(--txt-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-rotulo);
   color: var(--marca);
   background: var(--marca-suave);
   border-radius: 999px;
@@ -485,7 +485,7 @@
 }
 
 .admin-email {
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -509,7 +509,7 @@
   background: var(--superficie);
   border-radius: 999px;
   padding: 6px 14px;
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--texto);
   cursor: pointer;
@@ -541,9 +541,15 @@
 }
 
 .admin-vazio {
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   color: var(--texto-2);
   text-align: left;
+}
+
+/* O titulo nao quebra em duas linhas: com o `?` na mesma linha, "META DA
+   SEMANA" partia no meio no iPhone. */
+.meta-titulo {
+  white-space: nowrap;
 }
 
 /* --- Barra de abas (rodape) --- */
@@ -577,7 +583,7 @@
   background: none;
   color: var(--texto-2);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   cursor: pointer;
 }
 
@@ -626,12 +632,12 @@ body.com-abas .install-hint {
   flex-direction: column;
   gap: 2px;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: var(--txt-md);
   line-height: 1.35;
 }
 
 .install-hint-texto strong {
-  font-size: 0.9rem;
+  font-size: var(--txt-md);
 }
 
 .install-hint-texto span {
@@ -680,13 +686,13 @@ body.com-abas .install-hint {
 .sessao-horas {
   font-weight: 700;
   color: var(--texto);
-  font-size: 0.88rem;
+  font-size: var(--txt-md);
 }
 
 .sessao-duracao {
   font-weight: 700;
   color: var(--marca);
-  font-size: 0.85rem;
+  font-size: var(--txt-md);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -705,7 +711,7 @@ body.com-abas .install-hint {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   color: var(--texto-2);
   line-height: 1.25;
 }
@@ -723,16 +729,16 @@ body.com-abas .install-hint {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-rotulo);
   font-weight: 700;
 }
 
 .sessao-campo input {
   padding: 12px 10px;
-  font-size: 0.9rem;
+  font-size: var(--txt-campo);
   border: 2px solid var(--borda);
   border-radius: 10px;
   outline: none;
@@ -760,7 +766,7 @@ body.com-abas .install-hint {
   display: flex;
   align-items: flex-start;
   gap: 5px;
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   line-height: 1.3;
   color: var(--perigo);
   text-transform: none;
@@ -780,7 +786,7 @@ body.com-abas .install-hint {
   align-items: center;
   gap: 6px;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: var(--txt-md);
   font-weight: 600;
   line-height: 1.35;
   color: var(--ok-texto);
@@ -839,7 +845,7 @@ body.com-abas .install-hint {
   align-items: center;
   gap: 6px;
   margin: 0 0 10px;
-  font-size: 0.8rem;
+  font-size: var(--txt-md);
   font-weight: 600;
   color: var(--texto);
 }
@@ -847,10 +853,10 @@ body.com-abas .install-hint {
 /* "opcional" fica visivel de proposito: preencher nao pode parecer obrigacao. */
 .registro-opcional {
   padding: 1px 6px;
-  font-size: 0.6rem;
-  font-weight: 500;
+  font-size: var(--txt-2xs);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-rotulo);
   color: var(--texto-2);
   background: var(--neutro);
   border-radius: 999px;
@@ -866,7 +872,7 @@ body.com-abas .install-hint {
 .chip {
   padding: 5px 10px;
   font: inherit;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-3);
   background: var(--neutro);
   border: 1px solid transparent;
@@ -887,7 +893,7 @@ body.com-abas .install-hint {
 
 .chip--leitura {
   cursor: default;
-  font-size: 0.65rem;
+  font-size: var(--txt-xs);
 }
 
 .registro-campo {
@@ -899,7 +905,7 @@ body.com-abas .install-hint {
 }
 
 .registro-rotulo {
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
 }
 
@@ -912,7 +918,7 @@ body.com-abas .install-hint {
   width: 32px;
   height: 32px;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   color: var(--texto-3);
   background: var(--neutro);
   border: 1px solid transparent;
@@ -932,7 +938,7 @@ body.com-abas .install-hint {
 }
 
 .registro-esforco-rotulo {
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
 }
 
@@ -940,7 +946,7 @@ body.com-abas .install-hint {
   width: 100%;
   padding: 8px 10px;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--txt-md);
   color: var(--texto);
   background: var(--campo);
   border: 1px solid var(--borda);
@@ -950,7 +956,7 @@ body.com-abas .install-hint {
 
 .registro-contador {
   margin-left: auto;
-  font-size: 0.65rem;
+  font-size: var(--txt-xs);
   color: var(--texto-2);
 }
 
@@ -970,14 +976,14 @@ body.com-abas .install-hint {
 }
 
 .registro-resumo-esforco {
-  font-size: 0.65rem;
+  font-size: var(--txt-xs);
   color: var(--texto-2);
 }
 
 .registro-resumo-nota {
   width: 100%;
   margin: 2px 0 0;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   line-height: 1.35;
   color: var(--texto-3);
   overflow-wrap: anywhere;
@@ -1006,15 +1012,15 @@ body.com-abas .install-hint {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   color: var(--texto-2);
 }
 
 .mapa-total {
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   color: var(--texto-2);
 }
 
@@ -1039,7 +1045,7 @@ body.com-abas .install-hint {
 }
 
 .mapa-dia-semana {
-  font-size: 0.55rem;
+  font-size: var(--txt-2xs);
   line-height: 12px;
   color: var(--texto-2);
 }
@@ -1058,7 +1064,7 @@ body.com-abas .install-hint {
 
 .mapa-mes {
   width: 12px;
-  font-size: 0.55rem;
+  font-size: var(--txt-2xs);
   line-height: 12px;
   color: var(--texto-2);
   white-space: nowrap;
@@ -1105,7 +1111,7 @@ body.com-abas .install-hint {
   justify-content: flex-end;
   gap: 4px;
   margin-top: 10px;
-  font-size: 0.6rem;
+  font-size: var(--txt-2xs);
   color: var(--texto-2);
 }
 
@@ -1133,7 +1139,7 @@ body.com-abas .install-hint {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--texto);
 }
@@ -1161,12 +1167,12 @@ body.com-abas .install-hint {
 }
 
 .festa-item-texto strong {
-  font-size: 0.8rem;
+  font-size: var(--txt-md);
   color: var(--texto);
 }
 
 .festa-item-desc {
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   line-height: 1.35;
   color: var(--texto-3);
 }
@@ -1186,7 +1192,7 @@ body.com-abas .install-hint {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.7rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--texto);
 }
@@ -1200,7 +1206,7 @@ body.com-abas .install-hint {
 }
 
 .conquistas-proximo-nome {
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   color: var(--texto-2);
   white-space: nowrap;
 }
@@ -1222,7 +1228,7 @@ body.com-abas .install-hint {
 }
 
 .conquistas-proximo-numero {
-  font-size: 0.65rem;
+  font-size: var(--txt-xs);
   color: var(--texto-2);
   white-space: nowrap;
 }
@@ -1233,7 +1239,7 @@ body.com-abas .install-hint {
   gap: 6px;
   margin: 0 0 16px;
   padding: 10px 12px;
-  font-size: 0.75rem;
+  font-size: var(--txt-sm);
   line-height: 1.35;
   color: var(--texto-3);
   background: var(--neutro);
@@ -1249,13 +1255,13 @@ body.com-abas .install-hint {
 }
 
 .perfil-nome {
-  font-size: 1.05rem;
+  font-size: var(--txt-lg);
   font-weight: 600;
   color: var(--texto);
 }
 
 .perfil-email {
-  font-size: 0.82rem;
+  font-size: var(--txt-md);
   color: var(--texto-2);
 }
 
@@ -1264,7 +1270,7 @@ body.com-abas .install-hint {
   align-items: center;
   gap: 5px;
   margin-top: 4px;
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   color: var(--marca);
 }
 
@@ -1273,4 +1279,74 @@ body.com-abas .install-hint {
   flex-wrap: wrap;
   gap: 8px;
   padding-top: 12px;
+}
+
+/* --- Dica (`?` que explica um conceito) --- */
+
+/* Existe porque `title` do HTML so aparece no hover do mouse, e este app e
+   usado no celular, onde hover nao existe. Abre no toque. */
+.dica {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dica-botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Alvo maior que o icone: 14px de icone seria impossivel de acertar com o
+     dedo. Nao chega aos 44px de acao principal de proposito -- e um apoio
+     dentro de uma linha de texto, e 44px empurrariam o layout. */
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--texto-2);
+  cursor: pointer;
+}
+
+.dica-botao:active,
+.dica-botao[aria-expanded="true"] {
+  background: var(--neutro);
+  color: var(--texto);
+}
+
+.dica-caixa {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: max-content;
+  /* Duas travas: a caixa nao passa de 260px, e nunca fica mais larga que a
+     tela menos as margens. O `calc` e o que impede o texto de sair do celular
+     estreito. */
+  max-width: min(260px, calc(100vw - 40px));
+
+  /* RESET do contexto tipografico. A caixa nasce dentro do rotulo que ela
+     explica -- e esses rotulos sao titulos: o do historico usa Anton e o da
+     meta usa CAIXA ALTA com espacamento. Tudo isso e herdado, e a explicacao
+     saia em fonte de display ou em maiuscula, cada dica com uma cara. A caixa
+     e uma superficie propria: declara a tipografia dela por inteiro, nunca
+     depende de onde foi pendurada. */
+  font-family: var(--fonte-texto);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+
+  background: var(--inverso);
+  color: var(--inverso-texto);
+  border-radius: 10px;
+  padding: 9px 11px;
+  box-shadow: var(--sombra-flutuante);
+  font-size: var(--txt-sm);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  /* A caixa e so leitura: deixar o toque passar reto seria pior, porque
+     tocar nela fecharia junto com o "toque fora". */
+  white-space: normal;
 }

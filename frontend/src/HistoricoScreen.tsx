@@ -1,4 +1,5 @@
 import { Check, ListPlus, Pencil, TriangleAlert, X } from "lucide-react";
+import { Dica } from "./Dica";
 import { MapaDoAno } from "./MapaDoAno";
 import { RegistroTreino, ResumoDoRegistro } from "./RegistroTreino";
 import {
@@ -206,15 +207,21 @@ export function HistoricoScreen({
       )}
 
       <section className="secao">
-        <h2 className="secao-titulo">Histórico</h2>
+        <h2 className="secao-titulo">
+          Histórico
+          <Dica
+            rotulo="O que fazem os botoes de cada treino?"
+            texto="A lista tem dois botoes por treino. O de lista (+) ANOTA: tipo de treino, esforco e observacao, livre e quantas vezes quiser, sem mexer no que conta. O lapis CORRIGE o horario: so o horario de FIM, uma vez por treino, e no maximo 1h a mais do que foi marcado -- porque corrigir mexe no que conta na semana, e fica registrado com o motivo."
+          />
+        </h2>
 
         {carregando && <p className="admin-vazio">Carregando...</p>}
-        {/* A instrucao aponta pra aba Hoje: o botao de comecar nao esta mais
-            nesta tela, e mandar "toque em Começar treino" sem dizer onde e
-            mandar procurar. */}
+        {/* A instrucao aponta pra aba Treino: o botao de comecar nao esta
+            mais nesta tela, e mandar "toque em Começar treino" sem dizer onde
+            e mandar procurar. */}
         {!carregando && grupos.length === 0 && (
           <p className="admin-vazio">
-            Nenhum treino ainda. Comece o primeiro na aba Hoje.
+            Nenhum treino ainda. Comece o primeiro na aba Treino.
           </p>
         )}
 

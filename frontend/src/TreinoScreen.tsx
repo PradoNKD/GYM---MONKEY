@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 /**
- * Aba **Hoje**: a tela de acao.
+ * Aba **Treino**: a tela de acao.
  *
  * Fica so o que responde "e agora?": se ha treino em andamento, o botao que
  * comeca ou finaliza, os numeros da semana e as comemoracoes. Consulta do
@@ -28,7 +28,7 @@ import type {
  * olhando. O momento seguinte ao check-out e o de maior intencao -- e o unico
  * momento em que vale pedir.
  */
-export function HojeScreen({
+export function TreinoScreen({
   resumo,
   carregando,
   enviando,

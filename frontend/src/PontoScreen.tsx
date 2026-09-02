@@ -12,7 +12,7 @@ import {
 import { Abas } from "./Abas";
 import { BotaoTema } from "./BotaoTema";
 import { HistoricoScreen } from "./HistoricoScreen";
-import { HojeScreen } from "./HojeScreen";
+import { TreinoScreen } from "./TreinoScreen";
 import { PerfilScreen } from "./PerfilScreen";
 import { useAuth } from "./AuthContext";
 import { useAba } from "./rota";
@@ -35,7 +35,7 @@ import type {
  * de aba nao pode refazer as requisicoes (o servidor calcula streak, semana e
  * conquistas, e refazer isso a cada toque seria caro e piscaria a tela), e
  * varias acoes tem efeito em mais de uma aba -- corrigir um treino no Historico
- * muda os numeros que a aba Hoje mostra. As abas em si sao de apresentacao.
+ * muda os numeros que a aba Treino mostra. As abas em si sao de apresentacao.
  */
 export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
@@ -53,7 +53,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
 
   // Registro do treino (Fase A). `registrandoNovo` distingue o formulario que
   // abriu sozinho depois do check-out do que a pessoa abriu pelo historico: o
-  // primeiro aparece na aba Hoje, o segundo dentro da linha da lista.
+  // primeiro aparece na aba Treino, o segundo dentro da linha da lista.
   const [registrandoId, setRegistrandoId] = useState<string | null>(null);
   const [registrandoNovo, setRegistrandoNovo] = useState(false);
   const [salvandoRegistro, setSalvandoRegistro] = useState(false);
@@ -124,7 +124,7 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     [pagina?.itens],
   );
 
-  // A sessao recem-finalizada, para o registro que abre sozinho na aba Hoje.
+  // A sessao recem-finalizada, para o registro que abre sozinho na aba Treino.
   const sessaoRecemFinalizada = useMemo(
     () =>
       registrandoNovo && registrandoId
@@ -300,8 +300,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
         </div>
       </div>
 
-      {aba === "hoje" && (
-        <HojeScreen
+      {aba === "treino" && (
+        <TreinoScreen
           resumo={resumo}
           carregando={carregando}
           enviando={enviando}

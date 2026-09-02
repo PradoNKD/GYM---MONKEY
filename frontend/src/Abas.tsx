@@ -5,7 +5,7 @@ import { ABAS, TITULO_DA_ABA, type Aba } from "./rota";
  * Barra de abas no rodape.
  *
  * **Embaixo, nao em cima**: em celular o polegar alcanca o rodape sem trocar a
- * mao de posicao, e a tela Hoje tem um botao grande que e a acao principal --
+ * mao de posicao, e a tela Treino tem um botao grande que e a acao principal --
  * abas no topo competiriam com o cabecalho.
  *
  * A aba ativa e marcada por `aria-current="page"`, nao so por cor: quem usa
@@ -13,7 +13,7 @@ import { ABAS, TITULO_DA_ABA, type Aba } from "./rota";
  */
 
 const ICONE_DA_ABA = {
-  hoje: Dumbbell,
+  treino: Dumbbell,
   historico: CalendarDays,
   perfil: User,
 } as const satisfies Record<Aba, unknown>;

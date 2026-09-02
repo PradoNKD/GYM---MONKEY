@@ -16,16 +16,16 @@ import { useEffect, useState } from "react";
  * uma biblioteca e aqui -- os componentes so conhecem `useAba`.
  */
 
-export type Aba = "hoje" | "historico" | "perfil";
+export type Aba = "treino" | "historico" | "perfil";
 
 /** A ordem aqui e a ordem da barra na tela. */
-export const ABAS: readonly Aba[] = ["hoje", "historico", "perfil"];
+export const ABAS: readonly Aba[] = ["treino", "historico", "perfil"];
 
 /** Onde o app abre, e onde ele cai quando o hash nao diz nada util. */
-export const ABA_INICIAL: Aba = "hoje";
+export const ABA_INICIAL: Aba = "treino";
 
 export const TITULO_DA_ABA: Record<Aba, string> = {
-  hoje: "Hoje",
+  treino: "Treino",
   historico: "Histórico",
   perfil: "Perfil",
 };

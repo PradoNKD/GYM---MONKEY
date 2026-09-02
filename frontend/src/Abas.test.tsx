@@ -5,12 +5,12 @@ import { Abas } from "./Abas";
 
 describe("Abas", () => {
   it("mostra as tres abas, na ordem da barra", () => {
-    render(<Abas ativa="hoje" onTrocar={() => {}} />);
+    render(<Abas ativa="treino" onTrocar={() => {}} />);
 
     const nomes = screen
       .getAllByRole("button")
       .map((b) => b.textContent?.trim());
-    expect(nomes).toEqual(["Hoje", "Histórico", "Perfil"]);
+    expect(nomes).toEqual(["Treino", "Histórico", "Perfil"]);
   });
 
   it("marca a aba ativa para leitor de tela, nao so com cor", () => {
@@ -20,14 +20,14 @@ describe("Abas", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("button", { name: "Hoje" })).not.toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Treino" })).not.toHaveAttribute(
       "aria-current",
     );
   });
 
   it("avisa qual aba foi tocada", async () => {
     const onTrocar = vi.fn();
-    render(<Abas ativa="hoje" onTrocar={onTrocar} />);
+    render(<Abas ativa="treino" onTrocar={onTrocar} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Perfil" }));
 
@@ -38,15 +38,15 @@ describe("Abas", () => {
     // Acontece o tempo todo com o polegar; nao pode explodir nem virar no-op
     // silencioso que confunde quem le o codigo depois.
     const onTrocar = vi.fn();
-    render(<Abas ativa="hoje" onTrocar={onTrocar} />);
+    render(<Abas ativa="treino" onTrocar={onTrocar} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Hoje" }));
+    await userEvent.click(screen.getByRole("button", { name: "Treino" }));
 
-    expect(onTrocar).toHaveBeenCalledWith("hoje");
+    expect(onTrocar).toHaveBeenCalledWith("treino");
   });
 
   it("a barra se anuncia como navegacao", () => {
-    render(<Abas ativa="hoje" onTrocar={() => {}} />);
+    render(<Abas ativa="treino" onTrocar={() => {}} />);
 
     expect(
       screen.getByRole("navigation", { name: "Navegacao principal" }),
@@ -54,7 +54,7 @@ describe("Abas", () => {
   });
 
   it("o icone nao e lido pelo leitor de tela (o texto ja diz)", () => {
-    const { container } = render(<Abas ativa="hoje" onTrocar={() => {}} />);
+    const { container } = render(<Abas ativa="treino" onTrocar={() => {}} />);
 
     const icones = container.querySelectorAll("svg");
     expect(icones.length).toBe(3);

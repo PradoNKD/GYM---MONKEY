@@ -3,7 +3,7 @@ import { ABA_INICIAL, ABAS, hashDaAba, lerAba, TITULO_DA_ABA } from "./rota";
 
 describe("lerAba", () => {
   it("le as tres abas", () => {
-    expect(lerAba("#/hoje")).toBe("hoje");
+    expect(lerAba("#/treino")).toBe("treino");
     expect(lerAba("#/historico")).toBe("historico");
     expect(lerAba("#/perfil")).toBe("perfil");
   });
@@ -40,8 +40,8 @@ describe("lerAba", () => {
   });
 
   it("nao confunde aba com prefixo de outra palavra", () => {
-    // "hojex" nao e "hoje": casar por prefixo levaria a aba errada.
-    expect(lerAba("#/hojex")).toBe(ABA_INICIAL);
+    // "treinox" nao e "treino": casar por prefixo levaria a aba errada.
+    expect(lerAba("#/treinox")).toBe(ABA_INICIAL);
     expect(lerAba("#/historico-antigo")).toBe(ABA_INICIAL);
   });
 });
@@ -55,9 +55,9 @@ describe("hashDaAba", () => {
 });
 
 describe("configuracao das abas", () => {
-  it("abre em Hoje: e a tela de acao, nao a de consulta", () => {
-    expect(ABA_INICIAL).toBe("hoje");
-    expect(ABAS[0]).toBe("hoje");
+  it("abre em Treino: e a tela de acao, nao a de consulta", () => {
+    expect(ABA_INICIAL).toBe("treino");
+    expect(ABAS[0]).toBe("treino");
   });
 
   it("toda aba tem titulo", () => {
