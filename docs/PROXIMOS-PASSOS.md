@@ -13,7 +13,130 @@ Documento visual completo:
 
 ---
 
-## Estado atual — onde paramos (2026-08-31)
+## Estado atual — onde paramos (2026-09-02)
+
+### v1.1 — navegação por abas — ENTREGUE
+
+A tela única virou **três abas** no rodapé: **Treino / Histórico / Perfil**.
+`PontoScreen` foi de 504 para 373 linhas e virou container de estado; a
+renderização mora em `TreinoScreen`, `HistoricoScreen` e `PerfilScreen`.
+
+**Sem aba Grupo**, apesar de o roadmap listar quatro: hoje só uma pessoa usa o
+app (ver a nota de uso real mais abaixo), então ela abriria vazia. Entra na
+v1.3, quando houver gente. Construir tela para usuário imaginário é custo que a
+v1.3 paga, não esta.
+
+**Router próprio, por hash (`#/treino`), sem biblioteca.** O motivo não é
+economia de bytes: o GitHub Pages serve arquivo estático e **não tem fallback de
+SPA**, então com rota de caminho de verdade um F5 em `/historico` devolveria
+404. A saída usual é duplicar o `index.html` como `404.html`, truque que depende
+de detalhe de hospedagem. Com hash o servidor nunca vê a rota, e o botão voltar
+do aparelho funciona de graça. São três abas, sem rota aninhada nem parâmetro —
+quando a v2.0 pedir parâmetro, o lugar de trocar por biblioteca é o `rota.ts`,
+porque os componentes só conhecem `useAba`.
+
+**O registro do treino recém-finalizado abre na aba Treino.** Antes abria dentro
+da lista, que era a mesma tela; com abas, abriria numa tela que a pessoa não
+está olhando — e o instante seguinte ao check-out é o de maior intenção.
+
+**Sair e Painel saíram do cabeçalho para o Perfil**: sair obriga a logar de novo
+e ficava num alvo pequeno, no topo, colado no botão mais usado do app. O botão de
+tema **fica** ao lado do nome GYM MONKEY, por pedido explícito.
+
+Validado no iPhone pelo dono do produto: barra não cobre a última linha,
+formulário abre na aba certa, botão voltar troca de aba, tema escuro ok, Painel
+abre do Perfil.
+
+### Dicas (`?`) explicando os conceitos — ENTREGUE
+
+Pedido depois do teste no aparelho: *"eu sei o que o floco de neve faz porque
+desenvolvi, outras pessoas não vão saber"*.
+
+Componente próprio em vez de `title`: o atributo do HTML **só aparece no hover
+do mouse**, e em celular hover não existe — a dica nunca apareceria justamente
+onde o app é usado. Abre no toque, fecha tocando fora / de novo / com Escape.
+
+A distinção que decidiu onde colocar: os ícones do MetaSemana **já têm texto ao
+lado** ("2 congelamentos"), então o que faltava não era o nome, era **o que o
+conceito faz**. Os dois botões de cada treino no histórico eram os únicos só
+ícone, e ganharam uma dica no título da seção em vez de um `?` por linha.
+
+Os números saem da regra do servidor (`TOKENS_MAX`, `SEMANAS_POR_TOKEN`,
+`AUMENTO_MAX_CORRECAO_MIN`). **Risco de desvio registrado**: a API não envia
+essas constantes, então o texto as repete à mão. Se mudarem no servidor, o texto
+mente — e o teste em `MetaSemana.test.tsx` é onde isso aparece.
+
+### Tipografia padronizada — ENTREGUE
+
+Pedido do dono do produto ao ver a tela: *"as fontes/letras não estão
+padronizadas"*. Medido antes de mexer: **19 tamanhos de fonte**, dez deles
+apertados entre 0.68 e 0.88rem, mais 4 pesos, 5 espaçamentos e a pilha de
+`font-family` repetida à mão em 6 lugares.
+
+Agora: **8 degraus, 3 pesos, 1 espaçamento, 2 famílias** — todos em token. As 61
+declarações de `font-size` saem da escala.
+
+Dois defeitos que não eram estética:
+
+- **O Safari do iOS dá zoom sozinho** ao focar campo com fonte menor que 16px. O
+  `select` da meta estava em 12px e os campos da correção em 14px, então abrir o
+  seletor de data/hora entortava a página. Daí o degrau `--txt-campo`,
+  obrigatório em todo campo. Como 16px alarga o seletor, o rótulo encurtou de
+  "3x por semana" para **"3x"** — o título ao lado já diz "Meta da semana", e o
+  rótulo acessível do campo segue completo.
+- **A caixa da dica herdava o estilo do rótulo em que nascia.** No histórico ela
+  nasce dentro de um `<h2>` com Anton (fonte de display) e foi lida como "toda
+  em negrito" — não era negrito, era outra fonte. Na meta, nascia dentro de um
+  rótulo em CAIXA ALTA e saía em maiúscula. Agora a caixa declara família, peso,
+  espaçamento e caixa por inteiro: é **superfície própria**, não pedaço do
+  título.
+
+O guarda vive em `frontend/test/tipografia.test.ts` e reprova valor cru de
+tamanho, peso, espaçamento e família, exige `--txt-campo` em campo de formulário
+e exige o reset da `.dica-caixa`. Escala sem guarda apodrece no primeiro
+`font-size: 0.83rem` escrito com pressa.
+
+### O que o teste de mutação pegou nesta rodada
+
+Vale registrar porque três dos quatro achados eram **testes que passavam por
+motivo errado** — o tipo de falha que uma suíte verde esconde:
+
+1. `"treino em andamento nao oferece registro"` passou a passar por estar na aba
+   errada: o botão não existia porque a lista não estava na tela, não porque a
+   regra vale.
+2. Dava para **apagar a leitura do hash na abertura** — quebrar o router
+   inteiro — com a suíte verde, porque todo teste começava na aba inicial e
+   navegava por clique. Faltavam "abre na aba que a URL pede" e "botão voltar
+   troca de aba".
+3. O primeiro teste escrito para o item 2 também passava errado: atribuir
+   `window.location.hash` enfileira um `hashchange` que chega **depois** da
+   montagem, e o ouvinte salvava o teste. Trocado por `history.replaceState`,
+   que muda a URL sem disparar evento.
+4. O guarda de tipografia, na primeira versão, importava o CSS com `?raw` de
+   dentro de `src/`: compilava, passava, e **passava vazio**, porque o Vitest
+   roda com `css: false`. Só a asserção "achou pelo menos um degrau" revelou.
+
+Suíte: **284 no frontend** (era 229) e **339 no backend**, inalterado — nada de
+`backend/` mudou hoje.
+
+Commits: `70c6784` (abas), `677d8b9` (aba Treino + dicas), `476d8e2`
+(tipografia). No ar e verificado no bundle publicado, não só no workflow verde.
+
+### O que falta da v1.1
+
+- **Offline-first com fila de sync** — e há um **conflito de projeto a decidir
+  antes de codar**: a v0.9 fixou que *timestamp nasce no servidor, nunca é
+  aceito do cliente*, e foi por isso que a correção é auditada. Mas um check-in
+  offline **só existe** se o celular gravar a hora e enviar depois. Tem saída
+  (marcar origem, revalidar a janela no servidor, tratar como correção
+  auditada), mas é decisão de produto, não detalhe de implementação.
+- **Comprovante compartilhável.**
+- **Onboarding de instalação PWA** — hoje existe a dica flutuante, não um fluxo.
+- Design system: cor e tipografia feitos; falta revisar espaçamento e raio.
+
+---
+
+## Estado anterior (2026-08-31)
 
 ### Mapa do ano — ENTREGUE
 
@@ -1033,7 +1156,7 @@ de verificar a aprovação.
 | Versão | Foco | Itens principais |
 |---|---|---|
 | **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, 16 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º~~ — **COMPLETA** (28/08 e 31/08) |
-| **v1.1** | Front melhor | Router e abas (Hoje/Histórico/Grupo/Perfil), **offline-first com fila de sync**, design system + **dark mode (pedido explícito)**, onboarding de instalação PWA, comprovante compartilhável |
+| **v1.1** | Front melhor | ~~Router e abas~~ (Treino/Histórico/Perfil — **sem Grupo**, que entra na v1.3), ~~dark mode~~, ~~design system: cor e tipografia~~ — **entregues em 02/09**. Falta: **offline-first com fila de sync** (tem conflito de timestamp a decidir), onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
 | **v1.4** | Notificações | Recap semanal **por e-mail primeiro** (100% da base), Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |

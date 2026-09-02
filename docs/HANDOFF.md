@@ -4,7 +4,7 @@ Documento pra retomar o trabalho de qualquer máquina. Vive no repositório de
 propósito: `git clone` já te entrega tudo isto, sem depender de nenhuma outra
 ferramenta.
 
-Última atualização: 2026-08-31.
+Última atualização: 2026-09-02.
 
 ---
 
@@ -22,7 +22,7 @@ regras de integridade no servidor. Na **v1.0** o número principal da home passo
 a ser a **meta semanal** (com streak de semanas e congelamento); a streak diária
 virou recorde histórico.
 
-**Qualidade:** 568 testes automatizados (339 no backend, 229 no frontend),
+**Qualidade:** 623 testes automatizados (339 no backend, 284 no frontend),
 rodando em CI (GitHub Actions) a cada push/PR. Badge no [README](../README.md).
 
 **Validar antes de subir:** [AMBIENTE-DE-TESTE](AMBIENTE-DE-TESTE.md) levanta o
@@ -35,6 +35,19 @@ commit; `database` é um `SELECT 1` de verdade, então 503 com `"down"` signific
 API de pé sem conseguir falar com o Neon.
 
 ### O que está em aberto agora
+
+A **v1.1 — navegação por abas** está **entregue e em produção** desde
+2026-09-02: três abas no rodapé (**Treino / Histórico / Perfil**), router
+próprio por hash — porque o GitHub Pages não tem fallback de SPA e um F5 numa
+rota de caminho daria 404 —, um `?` que explica os conceitos no toque (em
+celular não existe hover, então `title` nunca apareceria) e a tipografia
+padronizada em tokens, com guarda contra valor cru. **Sem aba Grupo**: hoje só
+uma pessoa usa o app, então ela abriria vazia; entra na v1.3.
+
+Da v1.1 faltam **offline-first com fila de sync**, comprovante compartilhável e
+o onboarding de instalação. O offline-first tem um **conflito de projeto a
+decidir antes de codar**, descrito no PROXIMOS-PASSOS: a v0.9 fixou que
+timestamp nasce no servidor, e um check-in offline exige o contrário.
 
 A **v0.9 — Fundação está entregue e em produção** (2026-08-27), junto com o
 tema claro/escuro, o polimento mobile, a auditoria de segurança e a trava de
