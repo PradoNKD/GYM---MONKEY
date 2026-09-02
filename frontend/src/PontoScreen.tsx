@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Check,
-  ListPlus,
-  LogOut,
-  Pencil,
-  ShieldCheck,
-  TriangleAlert,
-  X,
-} from "lucide-react";
-import {
   alterarMeta,
   alternarTreino,
   anotarSessao,
@@ -18,25 +9,17 @@ import {
   corrigirSessao,
   marcarConquistasVistas,
 } from "./api";
-import { RegistroTreino, ResumoDoRegistro } from "./RegistroTreino";
+import { Abas } from "./Abas";
 import { BotaoTema } from "./BotaoTema";
-import {
-  ConviteDeRecomeco,
-  FestaDeConquistas,
-  ResumoConquistas,
-} from "./Conquistas";
-import { MapaDoAno } from "./MapaDoAno";
-import { MetaSemana } from "./MetaSemana";
+import { HistoricoScreen } from "./HistoricoScreen";
+import { HojeScreen } from "./HojeScreen";
+import { PerfilScreen } from "./PerfilScreen";
 import { useAuth } from "./AuthContext";
+import { useAba } from "./rota";
 import {
   agruparSessoesPorDia,
-  descricaoDaDuracao,
-  formatarHorario,
   isoParaDatetimeLocal,
   mensagemDeSucesso,
-  motivoDeNaoContar,
-  rotuloDoDia,
-  temFimConfiavel,
 } from "./calculos";
 import type {
   MapaDoAno as Mapa,
@@ -45,13 +28,18 @@ import type {
   Sessao,
 } from "./types";
 
-/** So o primeiro nome: o header do celular nao tem largura pra "Sair (Nome Sobrenome)". */
-function primeiroNome(nome: string | undefined): string {
-  return nome?.trim().split(/\s+/)[0] ?? "";
-}
-
+/**
+ * Container das tres abas.
+ *
+ * O estado dos dados vive **aqui**, nao em cada aba, por dois motivos: trocar
+ * de aba nao pode refazer as requisicoes (o servidor calcula streak, semana e
+ * conquistas, e refazer isso a cada toque seria caro e piscaria a tela), e
+ * varias acoes tem efeito em mais de uma aba -- corrigir um treino no Historico
+ * muda os numeros que a aba Hoje mostra. As abas em si sao de apresentacao.
+ */
 export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { token, user, logout } = useAuth();
+  const { aba, irPara } = useAba();
   const [pagina, setPagina] = useState<PaginaSessoes | null>(null);
   const [mapa, setMapa] = useState<Mapa | null>(null);
   // A festa vive so na tela: o servidor ja sabe o que foi conquistado, e o que
@@ -64,8 +52,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const [salvandoMeta, setSalvandoMeta] = useState(false);
 
   // Registro do treino (Fase A). `registrandoNovo` distingue o formulario que
-  // abriu sozinho depois do check-out do que a pessoa abriu pelo historico:
-  // so o primeiro merece destaque.
+  // abriu sozinho depois do check-out do que a pessoa abriu pelo historico: o
+  // primeiro aparece na aba Hoje, o segundo dentro da linha da lista.
   const [registrandoId, setRegistrandoId] = useState<string | null>(null);
   const [registrandoNovo, setRegistrandoNovo] = useState(false);
   const [salvandoRegistro, setSalvandoRegistro] = useState(false);
@@ -114,8 +102,14 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     return () => clearTimeout(t);
   }, [sucesso]);
 
+  // A barra de abas e fixa no rodape, entao o conteudo precisa de espaco embaixo
+  // pra ultima linha nao ficar atras dela. Mesma ideia da dica de instalacao.
+  useEffect(() => {
+    document.body.classList.add("com-abas");
+    return () => document.body.classList.remove("com-abas");
+  }, []);
+
   const resumo = pagina?.resumo;
-  const emAndamento = resumo?.emAndamento ?? null;
   const duracaoMinima = resumo?.regras.duracaoMinimaMin ?? 20;
   const conquistas = resumo?.conquistas;
   const novasConquistas = festaFechada ? [] : (conquistas?.novas ?? []);
@@ -128,6 +122,15 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const grupos = useMemo(
     () => agruparSessoesPorDia(pagina?.itens ?? []),
     [pagina?.itens],
+  );
+
+  // A sessao recem-finalizada, para o registro que abre sozinho na aba Hoje.
+  const sessaoRecemFinalizada = useMemo(
+    () =>
+      registrandoNovo && registrandoId
+        ? (pagina?.itens.find((s) => s.id === registrandoId) ?? null)
+        : null,
+    [registrandoNovo, registrandoId, pagina?.itens],
   );
 
   async function alternar() {
@@ -281,125 +284,6 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     }
   }
 
-  function renderCorrecao(sessao: Sessao) {
-    return (
-      <li key={sessao.id} className="linha-registro sessao-edicao">
-        <label className="sessao-campo">
-          Fim do treino
-          <input
-            type="datetime-local"
-            value={fimEdicao}
-            onChange={(e) => setFimEdicao(e.target.value)}
-            disabled={salvando}
-          />
-        </label>
-        <label className="sessao-campo">
-          Motivo da correcao (uma correcao por treino)
-          <input
-            type="text"
-            placeholder="Ex.: esqueci de finalizar"
-            value={motivoEdicao}
-            onChange={(e) => setMotivoEdicao(e.target.value)}
-            minLength={3}
-            maxLength={200}
-            disabled={salvando}
-          />
-        </label>
-        {erroCorrecao && (
-          <p className="sessao-edicao-erro" role="alert">
-            <TriangleAlert size={13} />
-            {erroCorrecao}
-          </p>
-        )}
-
-        <span className="sessao-edicao-acoes">
-          <button
-            type="button"
-            className="btn-mini btn-mini--ok"
-            onClick={() => salvarCorrecao(sessao.id)}
-            disabled={salvando || !fimEdicao || motivoEdicao.trim().length < 3}
-            aria-label="Salvar correcao"
-          >
-            <Check size={14} />
-            {salvando ? "Salvando..." : "Salvar"}
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => setEditandoId(null)}
-            disabled={salvando}
-            aria-label="Cancelar correcao"
-          >
-            <X size={16} />
-          </button>
-        </span>
-      </li>
-    );
-  }
-
-  function renderSessao(sessao: Sessao) {
-    if (editandoId === sessao.id) return renderCorrecao(sessao);
-
-    const aviso = motivoDeNaoContar(sessao, duracaoMinima);
-    const registrando = registrandoId === sessao.id;
-
-    return (
-      <li
-        key={sessao.id}
-        className={`linha-registro linha-sessao ${sessao.contavel ? "" : "linha-sessao--nao-conta"} ${registrando ? "linha-sessao--registrando" : ""}`}
-      >
-        <span className="sessao-info">
-          <span className="sessao-horas">
-            {formatarHorario(sessao.startedAt)}
-            {temFimConfiavel(sessao) ? ` - ${formatarHorario(sessao.endedAt!)}` : ""}
-          </span>
-          {aviso && (
-            <span className="sessao-aviso">
-              <TriangleAlert size={12} />
-              {aviso}
-            </span>
-          )}
-          {!registrando && <ResumoDoRegistro sessao={sessao} />}
-        </span>
-        <span className="sessao-duracao">{descricaoDaDuracao(sessao)}</span>
-        {/* Anotar e corrigir sao coisas diferentes, e a tela nao pode
-            confundi-las: corrigir mexe no que CONTA e e auditado; anotar e
-            rotulo, livre e ilimitado. Por isso dois botoes, nao um menu. */}
-        {sessao.status !== "OPEN" && !registrando && (
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => abrirRegistro(sessao)}
-            aria-label="Registrar o treino"
-          >
-            <ListPlus size={14} />
-          </button>
-        )}
-        {sessao.corrigivel && !registrando && (
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => iniciarCorrecao(sessao)}
-            aria-label="Corrigir treino"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-        {registrando && (
-          <RegistroTreino
-            sessao={sessao}
-            limites={limitesRegistro}
-            salvando={salvandoRegistro}
-            erro={erroRegistro}
-            destacado={registrandoNovo}
-            onSalvar={(dados) => salvarRegistro(sessao.id, dados)}
-            onCancelar={fecharRegistro}
-          />
-        )}
-      </li>
-    );
-  }
-
   return (
     <main className="card">
       <div className="card-header">
@@ -414,91 +298,76 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           <h1>GYM MONKEY</h1>
           <BotaoTema />
         </div>
-        <div className="card-header-acoes">
-          {onOpenAdmin && (
-            <button type="button" className="link-btn" onClick={onOpenAdmin}>
-              <ShieldCheck size={14} />
-              Painel
-            </button>
-          )}
-          <button type="button" className="link-btn" onClick={logout}>
-            <LogOut size={14} />
-            Sair ({primeiroNome(user?.name)})
-          </button>
-        </div>
       </div>
 
-      <p className={`status ${emAndamento ? "status--in" : "status--out"}`}>
-        {emAndamento
-          ? `Treino em andamento desde ${formatarHorario(emAndamento.startedAt)}`
-          : "Fora do treino"}
-      </p>
-
-      <MetaSemana
-        meta={resumo?.meta}
-        recordeDiario={resumo?.recordeDiario ?? 0}
-        minutosNaSemana={resumo?.semana.minutos ?? 0}
-        onAlterarMeta={trocarMeta}
-        salvandoMeta={salvandoMeta}
-      />
-
-      <ConviteDeRecomeco tipo={resumo?.freshStart ?? null} />
-
-      <FestaDeConquistas novas={novasConquistas} onFechar={fecharFesta} />
-
-      {conquistas && <ResumoConquistas conquistas={conquistas} />}
-
-      <MapaDoAno mapa={mapa} />
-
-      {erro && <p className="auth-erro">{erro}</p>}
-      {sucesso && (
-        <p className="aviso-sucesso" role="status">
-          <Check size={14} />
-          {sucesso}
-        </p>
+      {aba === "hoje" && (
+        <HojeScreen
+          resumo={resumo}
+          carregando={carregando}
+          enviando={enviando}
+          onAlternar={alternar}
+          onAlterarMeta={trocarMeta}
+          salvandoMeta={salvandoMeta}
+          novasConquistas={novasConquistas}
+          onFecharFesta={fecharFesta}
+          erro={erro}
+          sucesso={sucesso}
+          registro={
+            sessaoRecemFinalizada
+              ? {
+                  sessao: sessaoRecemFinalizada,
+                  limites: limitesRegistro,
+                  salvando: salvandoRegistro,
+                  erro: erroRegistro,
+                  onSalvar: (dados) =>
+                    salvarRegistro(sessaoRecemFinalizada.id, dados),
+                  onCancelar: fecharRegistro,
+                }
+              : null
+          }
+        />
       )}
 
-      <button
-        type="button"
-        className={`btn ${emAndamento ? "btn--checkout" : "btn--checkin"}`}
-        onClick={alternar}
-        disabled={carregando || enviando}
-      >
-        {enviando ? "Registrando..." : emAndamento ? "Finalizar treino" : "Começar treino"}
-      </button>
+      {aba === "historico" && (
+        <HistoricoScreen
+          grupos={grupos}
+          mapa={mapa}
+          carregando={carregando}
+          duracaoMinima={duracaoMinima}
+          proximoCursor={pagina?.proximoCursor ?? null}
+          carregandoMais={carregandoMais}
+          onCarregarMais={carregarMais}
+          erro={erro}
+          sucesso={sucesso}
+          correcao={{
+            editandoId,
+            fim: fimEdicao,
+            motivo: motivoEdicao,
+            salvando,
+            erro: erroCorrecao,
+            onIniciar: iniciarCorrecao,
+            onMudarFim: setFimEdicao,
+            onMudarMotivo: setMotivoEdicao,
+            onSalvar: salvarCorrecao,
+            onCancelar: () => setEditandoId(null),
+          }}
+          registro={{
+            abertoId: registrandoNovo ? null : registrandoId,
+            limites: limitesRegistro,
+            salvando: salvandoRegistro,
+            erro: erroRegistro,
+            onAbrir: abrirRegistro,
+            onSalvar: salvarRegistro,
+            onCancelar: fecharRegistro,
+          }}
+        />
+      )}
 
-      <section className="secao">
-        <h2 className="secao-titulo">Histórico</h2>
+      {aba === "perfil" && (
+        <PerfilScreen user={user} onOpenAdmin={onOpenAdmin} onLogout={logout} />
+      )}
 
-        {carregando && <p className="admin-vazio">Carregando...</p>}
-        {!carregando && grupos.length === 0 && (
-          <p className="admin-vazio">
-            Nenhum treino ainda. Toque em "Começar treino" para registrar o primeiro.
-          </p>
-        )}
-
-        <div className="lista-registros--historico">
-          {grupos.map((grupo) => (
-            <div key={grupo.chave} className="grupo-dia">
-              <h3 className="grupo-dia-titulo">{rotuloDoDia(grupo.data)}</h3>
-              <ul className="lista-registros">
-                {grupo.sessoes.map((sessao) => renderSessao(sessao))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        {pagina?.proximoCursor && (
-          <button
-            type="button"
-            className="btn-mini"
-            onClick={carregarMais}
-            disabled={carregandoMais}
-          >
-            {carregandoMais ? "Carregando..." : "Carregar mais"}
-          </button>
-        )}
-      </section>
+      <Abas ativa={aba} onTrocar={irPara} />
     </main>
   );
 }

@@ -52,6 +52,12 @@
 
   --sombra: 0 16px 40px rgba(20, 15, 10, 0.1);
   --sombra-flutuante: 0 12px 30px rgba(20, 15, 10, 0.28);
+
+  /* Altura da barra de abas. Vive num token porque tres regras precisam
+     concordar: a propria barra, o espaco no fim da pagina e a dica de
+     instalacao, que flutua acima dela. Numero repetido em tres lugares e
+     numero que sai de sincronia na primeira mudanca. */
+  --altura-abas: 58px;
 }
 
 /* Antes do React montar nao existe `data-tema` no <html>. Este bloco faz
@@ -172,6 +178,18 @@ body {
    InstallPrompt, e reserva a altura dela. */
 body.com-dica-instalacao {
   padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+/* A barra de abas e fixa: sem este espaco, a ultima linha do historico fica
+   atras dela e nao ha como rolar mais. */
+body.com-abas {
+  padding-bottom: calc(var(--altura-abas) + 16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* As duas juntas: a dica ocupa o lugar de sempre e a barra fica embaixo dela,
+   entao o espaco tem de somar os dois. */
+body.com-abas.com-dica-instalacao {
+  padding-bottom: calc(112px + var(--altura-abas) + env(safe-area-inset-bottom, 0px));
 }
 
 #root {

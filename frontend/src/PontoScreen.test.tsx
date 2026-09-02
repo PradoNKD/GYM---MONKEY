@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PontoScreen } from "./PontoScreen";
 import { ApiError } from "./api";
@@ -120,6 +120,18 @@ const hoje = new Date();
 const pad = (n: number) => String(n).padStart(2, "0");
 const CHAVE_HOJE = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
 
+// A tela virou tres abas. Consulta do passado (lista, mapa, correcao) mora na
+// aba Historico, e identidade/sair na aba Perfil -- entao o teste tem de ir
+// ate la, como a pessoa vai. Sem isto, um teste que afirma AUSENCIA passaria
+// por estar na aba errada, o que e pior que falhar.
+async function irParaHistorico() {
+  await userEvent.click(await screen.findByRole("button", { name: "Histórico" }));
+}
+
+async function irParaPerfil() {
+  await userEvent.click(await screen.findByRole("button", { name: "Perfil" }));
+}
+
 describe("PontoScreen (sessoes)", () => {
   beforeEach(() => {
     vi.mocked(buscarSessoes).mockReset().mockResolvedValue(pagina());
@@ -139,6 +151,7 @@ describe("PontoScreen (sessoes)", () => {
 
     it("mostra estado vazio quando nao ha treino nenhum", async () => {
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(await screen.findByText(/Nenhum treino ainda/)).toBeInTheDocument();
     });
@@ -205,6 +218,7 @@ describe("PontoScreen (sessoes)", () => {
       vi.mocked(anotarSessao).mockResolvedValue({ ...s, effort: 4 });
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await userEvent.click(
         await screen.findByRole("button", { name: "Registrar o treino" }),
       );
@@ -238,6 +252,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(await screen.findByText("Costas")).toBeInTheDocument();
       expect(screen.getByText("Esforço 3 · Moderado")).toBeInTheDocument();
@@ -250,6 +265,7 @@ describe("PontoScreen (sessoes)", () => {
       vi.mocked(anotarSessao).mockRejectedValue(new ApiError("Sessao nao encontrada"));
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await userEvent.click(
         await screen.findByRole("button", { name: "Registrar o treino" }),
       );
@@ -266,7 +282,11 @@ describe("PontoScreen (sessoes)", () => {
       vi.mocked(buscarSessoes).mockResolvedValue(pagina({ itens: [aberta] }));
 
       render(<PontoScreen />);
-      await screen.findByRole("button", { name: "Começar treino" });
+      await irParaHistorico();
+      // Espera a LINHA da sessao aparecer antes de afirmar que o botao nao
+      // esta nela. Sem esta ancora o teste passaria com a lista ainda vazia --
+      // afirmando ausencia num lugar onde nada chegou.
+      await screen.findByText("em andamento");
 
       expect(
         screen.queryByRole("button", { name: "Registrar o treino" }),
@@ -279,6 +299,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(
         await screen.findByRole("button", { name: "Registrar o treino" }),
@@ -523,9 +544,14 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(await screen.findByText("1h 30min")).toBeInTheDocument();
-      expect(screen.getByText("Hoje")).toBeInTheDocument();
+      // Pelo papel, nao pelo texto: "Hoje" tambem e o nome da aba, e
+      // getByText acharia os dois.
+      expect(
+        screen.getByRole("heading", { name: "Hoje", level: 3 }),
+      ).toBeInTheDocument();
     });
 
     it("NAO existe mais botao de excluir (historico apagavel inviabiliza placar)", async () => {
@@ -534,6 +560,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await screen.findByText("1h 0min");
 
       expect(screen.queryByRole("button", { name: /Excluir/ })).not.toBeInTheDocument();
@@ -554,6 +581,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(await screen.findByText(/Abaixo de 20 min/)).toBeInTheDocument();
       expect(screen.getByText("5min")).toBeInTheDocument();
@@ -574,6 +602,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(await screen.findByText("nao finalizado")).toBeInTheDocument();
       expect(screen.queryByText("6h 0min")).not.toBeInTheDocument();
@@ -591,8 +620,11 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
-      expect(await screen.findByText("Hoje")).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Hoje", level: 3 }),
+      ).toBeInTheDocument();
       expect(screen.getByText("15/01/2026")).toBeInTheDocument();
     });
 
@@ -611,6 +643,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await screen.findByText("em andamento");
 
       expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
@@ -626,6 +659,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await screen.findByText("1h 0min");
 
       expect(screen.queryByRole("button", { name: "Corrigir treino" })).not.toBeInTheDocument();
@@ -639,6 +673,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
 
       expect(
         await screen.findByRole("button", { name: "Corrigir treino" }),
@@ -653,6 +688,7 @@ describe("PontoScreen (sessoes)", () => {
       );
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await screen.findByText("1h 0min");
 
       expect(screen.queryByRole("button", { name: /Carregar mais/ })).not.toBeInTheDocument();
@@ -674,6 +710,7 @@ describe("PontoScreen (sessoes)", () => {
         );
 
       render(<PontoScreen />);
+      await irParaHistorico();
       await userEvent.click(await screen.findByRole("button", { name: /Carregar mais/ }));
 
       await waitFor(() => {
@@ -692,6 +729,7 @@ describe("PontoScreen (sessoes)", () => {
         pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, id: "s1", durationMin: 10, status: "SHORT", contavel: false })] }),
       );
       render(<PontoScreen />);
+      await irParaHistorico();
       await userEvent.click(await screen.findByRole("button", { name: "Corrigir treino" }));
     }
 
@@ -838,15 +876,69 @@ describe("PontoScreen (sessoes)", () => {
     });
   });
 
-  describe("cabecalho", () => {
+  // Estes dois casos faltavam e o buraco apareceu em teste de mutacao: dava
+  // pra quebrar o router inteiro -- ignorar o hash na abertura -- e a suite
+  // seguia verde, porque todo teste comecava na aba inicial e navegava por
+  // clique. Clicar em aba e so metade do que um router faz.
+  describe("a URL manda na aba", () => {
+    it("abre direto na aba que a URL pede", async () => {
+      // `replaceState` em vez de atribuir o hash: atribuir enfileira um
+      // `hashchange` que chega DEPOIS da montagem, e ai o teste passaria pelo
+      // ouvinte do evento em vez da leitura inicial -- provando outra coisa.
+      window.history.replaceState(null, "", "#/historico");
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ itens: [sessao({ dayKey: CHAVE_HOJE, durationMin: 90 })] }),
+      );
+
+      render(<PontoScreen />);
+
+      // Sem nenhum clique: a lista tem de estar na tela.
+      expect(await screen.findByText("1h 30min")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Histórico" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
+
+    it("o botao voltar do aparelho troca de aba", async () => {
+      render(<PontoScreen />);
+      await irParaPerfil();
+      expect(await screen.findByText("Fulano de Souza")).toBeInTheDocument();
+
+      // Voltar no navegador nao passa pelo React: ele muda o hash e dispara
+      // `hashchange`. Se a tela nao ouvir, o botao voltar sai do app inteiro.
+      await act(async () => {
+        window.location.hash = "#/hoje";
+      });
+
+      expect(await screen.findByText("Fora do treino")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Hoje" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
+
+    it("hash desconhecido nao deixa a tela em branco", async () => {
+      // Link velho, favorito, PWA reabrindo com hash de uma versao anterior.
+      window.history.replaceState(null, "", "#/grupo");
+
+      render(<PontoScreen />);
+
+      expect(await screen.findByText("Fora do treino")).toBeInTheDocument();
+    });
+  });
+
+  describe("cabecalho e aba Perfil", () => {
     it("mostra o Painel so quando recebe onOpenAdmin", async () => {
       const { unmount } = render(<PontoScreen />);
-      await screen.findByText("Fora do treino");
+      await irParaPerfil();
+      await screen.findByText("Fulano de Souza");
       expect(screen.queryByRole("button", { name: /Painel/ })).not.toBeInTheDocument();
       unmount();
 
       const onOpenAdmin = vi.fn();
       render(<PontoScreen onOpenAdmin={onOpenAdmin} />);
+      await irParaPerfil();
       await userEvent.click(await screen.findByRole("button", { name: /Painel/ }));
 
       expect(onOpenAdmin).toHaveBeenCalled();
@@ -854,19 +946,31 @@ describe("PontoScreen (sessoes)", () => {
 
     it("o botao sair chama logout", async () => {
       render(<PontoScreen />);
+      await irParaPerfil();
       await userEvent.click(await screen.findByRole("button", { name: /Sair/ }));
 
       expect(logout).toHaveBeenCalled();
     });
 
-    it("mostra so o primeiro nome no botao sair", async () => {
-      // "Sair (Fulano de Souza)" ocupava metade da largura do header no iPhone
-      // e empurrava o Painel pra outra linha.
+    // O nome completo era abreviado porque "Sair (Fulano de Souza)" ocupava
+    // metade da largura do cabecalho no iPhone. Na aba Perfil ha largura
+    // sobrando, e abreviar ali seria esconder informacao sem motivo.
+    it("a aba Perfil mostra o nome completo, nao o primeiro nome", async () => {
       render(<PontoScreen />);
+      await irParaPerfil();
 
-      const sair = await screen.findByRole("button", { name: /Sair/ });
-      expect(sair).toHaveTextContent("Sair (Fulano)");
-      expect(sair).not.toHaveTextContent("Souza");
+      expect(await screen.findByText("Fulano de Souza")).toBeInTheDocument();
+      expect(screen.getByText("f@x.com")).toBeInTheDocument();
+    });
+
+    it("Sair e Painel NAO ficam mais no cabecalho, a um toque do botao de treino", async () => {
+      // Sair obriga a logar de novo: alvo pequeno no topo, colado na acao mais
+      // usada do app, era toque errado esperando acontecer.
+      render(<PontoScreen onOpenAdmin={vi.fn()} />);
+      await screen.findByText("Fora do treino");
+
+      expect(screen.queryByRole("button", { name: /Sair/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Painel/ })).not.toBeInTheDocument();
     });
 
     it("o botao de tema alterna entre claro e escuro", async () => {
@@ -892,6 +996,7 @@ describe("PontoScreen (sessoes)", () => {
     );
 
     render(<PontoScreen />);
+    await irParaHistorico();
     const linha = (await screen.findByText("1h 0min")).closest("li")!;
 
     expect(within(linha).queryByText(/nao conta/)).not.toBeInTheDocument();
