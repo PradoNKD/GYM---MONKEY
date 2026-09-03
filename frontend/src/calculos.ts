@@ -1,3 +1,5 @@
+import { ApiError } from "./api";
+import { ehRetentavel } from "./rede";
 import type { Sessao } from "./types";
 
 // O que sobrou aqui e formatacao e agrupamento para exibir.
@@ -181,4 +183,39 @@ export function toggleFoiAplicado(
   haTreinoAbertoDepois: boolean,
 ): boolean {
   return haTreinoAbertoAntes !== haTreinoAbertoDepois;
+}
+
+/**
+ * O texto que a tela mostra quando a LEITURA nao deu certo.
+ *
+ * Existe porque a mensagem que aparecia era o rotulo de ultimo recurso da
+ * `api.ts` -- "Erro inesperado ao falar com o servidor" -- e ela errava em tres
+ * frentes de uma vez. Chamava de inesperado justamente o caso que a gente
+ * acabou de passar 27 segundos anunciando (o servidor acordando); nao dizia o
+ * que fazer; e o 502 do proxy nem carrega mensagem propria, entao caia ali por
+ * acidente, nao por decisao.
+ *
+ * A ordem das perguntas importa. Sem conexao vem primeiro porque, se o aparelho
+ * esta offline, qualquer coisa dita sobre o servidor e chute. Depois vem a falha
+ * de transporte ou de proxy, que e o cold start estourando o tempo. So no fim se
+ * mostra o texto do erro -- e **apenas** se ele veio de um `ApiError`, ou seja,
+ * se foi o servidor quem escreveu. A mensagem de um `Error` comum e recado de
+ * programador ("Failed to fetch", "undefined is not a function"): mostrar isso
+ * nao informa nada a quem esta na academia e ainda parece que o app vazou por
+ * dentro.
+ */
+export function mensagemDeFalhaNaLeitura(erro: unknown, online: boolean): string {
+  if (!online) {
+    return "Sem conexao com a internet. Reconecte e toque em tentar de novo.";
+  }
+
+  if (ehRetentavel(erro)) {
+    return "O servidor nao respondeu a tempo. Ele pode estar acordando ainda -- toque em tentar de novo.";
+  }
+
+  if (erro instanceof ApiError && erro.message.trim() !== "") {
+    return erro.message;
+  }
+
+  return "Nao foi possivel carregar seus treinos.";
 }

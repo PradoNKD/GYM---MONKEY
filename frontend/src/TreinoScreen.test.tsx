@@ -61,6 +61,8 @@ function montar(over: Partial<Parameters<typeof TreinoScreen>[0]> = {}) {
     sucesso: null,
     acordando: false,
     podeTentarDeNovo: false,
+    podeRecarregar: false,
+    onRecarregar: vi.fn(),
     registro: null,
     ...over,
   };
@@ -83,12 +85,59 @@ describe("aviso de servidor acordando", () => {
     expect(screen.queryByText(/acordando/i)).not.toBeInTheDocument();
   });
 
+  it("vem ANTES da linha de status, que ele explica", () => {
+    // Enquanto o servidor nao responde, a linha de status diz "Fora do treino"
+    // -- e isso e um chute: o app nao falou com ninguem ainda. Lido depois, o
+    // aviso chega tarde para desmentir. Lido antes, ele muda o sentido do resto
+    // da tela de afirmacao para "ainda carregando".
+    montar({ acordando: true });
+
+    const aviso = screen.getByRole("status");
+    const status = screen.getByText("Fora do treino");
+
+    expect(
+      aviso.compareDocumentPosition(status) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("nao e tratado como erro", () => {
     // Cor e papel de erro aqui ensinariam a pessoa a achar que o app quebrou
     // justamente quando ele esta funcionando -- so devagar.
     montar({ acordando: true });
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("saida quando a leitura falha", () => {
+  it("oferece buscar de novo em vez de deixar a tela morta", async () => {
+    // Sem este botao a unica saida era recarregar a pagina na mao -- e no PWA
+    // instalado, sem barra de endereco, isso nao e obvio nem facil.
+    const { onRecarregar } = montar({
+      podeRecarregar: true,
+      erro: "O servidor nao respondeu a tempo.",
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Tentar de novo/ }));
+
+    expect(onRecarregar).toHaveBeenCalledTimes(1);
+  });
+
+  it("nao aparece enquanto a busca esta em andamento", () => {
+    montar({ podeRecarregar: true, carregando: true });
+
+    expect(
+      screen.queryByRole("button", { name: /Tentar de novo/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("nao aparece quando a leitura deu certo", () => {
+    montar();
+
+    expect(
+      screen.queryByRole("button", { name: /Tentar de novo/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

@@ -19,6 +19,7 @@ import { useAba } from "./rota";
 import {
   agruparSessoesPorDia,
   isoParaDatetimeLocal,
+  mensagemDeFalhaNaLeitura,
   mensagemDeSucesso,
   toggleFoiAplicado,
 } from "./calculos";
@@ -78,6 +79,10 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   // oferecer "tentar de novo" em vez de so mostrar um erro e deixar a pessoa
   // sem saber se o treino comecou.
   const [toqueNaoAplicado, setToqueNaoAplicado] = useState(false);
+  // A leitura falhou e a tela ficou sem dado nenhum. Guardado separado do texto
+  // do erro porque o que importa e habilitar uma SAIDA: sem isso a unica opcao
+  // era recarregar a pagina na mao, o que ninguem descobre sozinho.
+  const [falhaAoCarregar, setFalhaAoCarregar] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!token) return;
@@ -101,12 +106,15 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
 
       setPagina(proxima);
       setMapa(novoMapa);
+      // Deu certo: limpa o estrago da tentativa anterior. Sem isto o erro de uma
+      // falha antiga ficaria na tela junto dos dados novos, contradizendo eles.
+      setErro(null);
+      setFalhaAoCarregar(false);
       if (proxima.resumo.conquistas.novas.length > 0) setFestaFechada(false);
       return proxima;
     } catch (error) {
-      setErro(
-        error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico",
-      );
+      setErro(mensagemDeFalhaNaLeitura(error, navigator.onLine !== false));
+      setFalhaAoCarregar(true);
     } finally {
       clearTimeout(avisoDeDemora);
       setAcordando(false);
@@ -192,9 +200,11 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
 
       if (paginaAtual === undefined) {
         // Nem a verificacao passou: sem saber como ficou, a unica coisa honesta
-        // e dizer isso e deixar a pessoa tentar de novo.
+        // e dizer isso. O botao de tentar de novo ja esta na tela, ligado por
+        // `falhaAoCarregar` dentro do `carregar` -- e ele repete a LEITURA, que
+        // e exatamente o que falta aqui: descobrir como o treino ficou.
         setErro(
-          "Nao foi possivel falar com o servidor. Verifique a conexao e recarregue para ver como ficou.",
+          "Nao deu para falar com o servidor, e o app nao sabe se o treino mudou. Toque em tentar de novo para ver como ficou.",
         );
         setEnviando(false);
         return;
@@ -385,6 +395,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           sucesso={sucesso}
           acordando={acordando}
           podeTentarDeNovo={toqueNaoAplicado}
+          podeRecarregar={falhaAoCarregar}
+          onRecarregar={() => void carregar()}
           registro={
             sessaoRecemFinalizada
               ? {

@@ -24,6 +24,21 @@ vi.mock("./AuthContext", () => ({
   }),
 }));
 
+// A politica de nova tentativa (quantas vezes, quanto esperar) e testada em
+// rede.test.ts, com a espera injetada. Aqui ela e curto-circuitada de proposito:
+// os erros de leitura deste arquivo sao os REAIS -- ErroDeRede e 502 --, que sao
+// retentaveis, e sem isto cada teste desses esperaria os 27 segundos de verdade
+// e estouraria o tempo. O que este arquivo prova e a LIGACAO: a falha virar
+// mensagem certa e botao na tela.
+//
+// O que fica de fora, dito em voz alta: o aviso de "servidor acordando" depende
+// do `aoDemorar` que esta funcao dispara, entao ele nao e exercitado aqui. A
+// apresentacao dele vive em TreinoScreen.test.tsx.
+vi.mock("./rede", async () => {
+  const real = await vi.importActual<typeof import("./rede")>("./rede");
+  return { ...real, comRetentativa: <T,>(acao: () => Promise<T>) => acao() };
+});
+
 vi.mock("./api", async () => {
   const real = await vi.importActual<typeof import("./api")>("./api");
   return {
@@ -172,13 +187,32 @@ describe("PontoScreen (sessoes)", () => {
       expect(await screen.findByText("Conta desativada")).toBeInTheDocument();
     });
 
-    it("usa mensagem generica quando o erro nao e da API", async () => {
-      vi.mocked(buscarSessoes).mockRejectedValue(new TypeError("Failed to fetch"));
+    // Este teste usava `TypeError("Failed to fetch")`, que a api.ts nunca deixa
+    // escapar -- ela embrulha falha de transporte em ErroDeRede. Passava por um
+    // caso irreal. Trocado pelo erro que de fato chega aqui.
+    it("cold start estourado: explica a espera e nao diz 'inesperado'", async () => {
+      vi.mocked(buscarSessoes).mockRejectedValue(new ErroDeRede("Failed to fetch"));
       render(<PontoScreen />);
 
-      expect(
-        await screen.findByText("Nao foi possivel carregar o historico"),
-      ).toBeInTheDocument();
+      expect(await screen.findByText(/acordando ainda/i)).toBeInTheDocument();
+      expect(screen.queryByText(/inesperado/i)).not.toBeInTheDocument();
+    });
+
+    it("a leitura falhada oferece uma saida, em vez de tela morta", async () => {
+      vi.mocked(buscarSessoes).mockRejectedValue(new ErroDeRede("caiu"));
+      render(<PontoScreen />);
+
+      const botao = await screen.findByRole("button", { name: /Tentar de novo/ });
+
+      // A segunda tentativa funciona: a tela tem de sair do erro sozinha, sem
+      // recarregar a pagina.
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      await userEvent.click(botao);
+
+      expect(await screen.findByText("Fora do treino")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByText(/acordando ainda/i)).not.toBeInTheDocument(),
+      );
     });
   });
 

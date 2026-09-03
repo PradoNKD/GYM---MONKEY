@@ -1359,7 +1359,9 @@ body.com-abas .install-hint {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 0 0;
+  /* Margem embaixo, nao em cima: o aviso agora abre a tela, e o espaco tem de
+     ficar entre ele e a linha de status que ele explica. */
+  margin: 0 0 12px;
   padding: 9px 11px;
   border: 1px solid var(--borda);
   border-radius: 10px;

@@ -7,11 +7,14 @@ import {
   isoParaDatetimeLocal,
   motivoDeNaoContar,
   rotuloDoDia,
+  mensagemDeFalhaNaLeitura,
   mensagemDeSucesso,
   temFimConfiavel,
   toggleFoiAplicado,
 } from "./calculos";
 import type { Sessao, StatusSessao } from "./types";
+import { ErroDeRede } from "./rede";
+import { ApiError } from "./api";
 
 // Streak, resumo da semana e pareamento de sessoes saíram deste arquivo na
 // v0.9: agora sao calculados no servidor, e estao cobertos lá por
@@ -363,5 +366,72 @@ describe("toggleFoiAplicado", () => {
   it("nada mudou: o toque nao chegou, vale oferecer tentar de novo", () => {
     expect(toggleFoiAplicado(false, false)).toBe(false);
     expect(toggleFoiAplicado(true, true)).toBe(false);
+  });
+});
+
+describe("mensagemDeFalhaNaLeitura", () => {
+  it("offline vence tudo: falar do servidor estando sem rede e chute", () => {
+    // Mesmo que o erro venha com status de servidor, sem conexao o app nao tem
+    // como saber de nada -- e mandar "tente de novo em alguns segundos" faria a
+    // pessoa esperar por algo que nao vai mudar sozinho.
+    const msg = mensagemDeFalhaNaLeitura(
+      Object.assign(new Error("http 502"), { status: 502 }),
+      false,
+    );
+
+    expect(msg).toMatch(/sem conexao/i);
+    expect(msg).not.toMatch(/servidor nao respondeu/i);
+  });
+
+  it("cold start estourado: diz o motivo e o que fazer", () => {
+    // Este e o caso que a pessoa ve depois dos 27 segundos de espera. Antes
+    // aparecia "Erro inesperado ao falar com o servidor" -- e nao era nada
+    // inesperado: o app acabou de anunciar essa espera.
+    const msg = mensagemDeFalhaNaLeitura(new ErroDeRede("Failed to fetch"), true);
+
+    expect(msg).not.toMatch(/inesperado/i);
+    expect(msg).toMatch(/acordando/i);
+    expect(msg).toMatch(/tentar de novo/i);
+  });
+
+  it("502 do proxy cai no mesmo texto do cold start", () => {
+    // O 502 do proxy vem em HTML, sem campo de mensagem, e por isso caia no
+    // rotulo de ultimo recurso da api por acidente. Agora e por decisao.
+    const msg = mensagemDeFalhaNaLeitura(
+      Object.assign(new Error("Erro inesperado ao falar com o servidor"), {
+        status: 502,
+      }),
+      true,
+    );
+
+    expect(msg).toMatch(/acordando/i);
+  });
+
+  it("erro que o servidor escreveu e mostrado como ele escreveu", () => {
+    // Aqui quem sabe do assunto e o servidor: trocar o texto dele por um
+    // genérico apagaria a unica informacao util.
+    const msg = mensagemDeFalhaNaLeitura(
+      new ApiError("Sua conta esta desativada", 403),
+      true,
+    );
+
+    expect(msg).toBe("Sua conta esta desativada");
+  });
+
+  it("erro sem mensagem nenhuma ainda diz algo sobre o app", () => {
+    expect(mensagemDeFalhaNaLeitura(null, true)).toMatch(/carregar seus treinos/i);
+    expect(mensagemDeFalhaNaLeitura(new ApiError("   ", 500), true)).toMatch(
+      /carregar seus treinos/i,
+    );
+  });
+
+  it("recado de programador NAO vai para a tela", () => {
+    // Um Error comum nao foi escrito pelo servidor: a mensagem dele e para quem
+    // depura, nao para quem esta na academia. Mostrar "Failed to fetch" em
+    // ingles nao informa nada e parece que o app vazou por dentro.
+    const msg = mensagemDeFalhaNaLeitura(new TypeError("Failed to fetch"), true);
+
+    expect(msg).not.toMatch(/failed to fetch/i);
+    expect(msg).toMatch(/carregar seus treinos/i);
   });
 });
