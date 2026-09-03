@@ -124,9 +124,13 @@ describe("saida quando a leitura falha", () => {
     expect(onRecarregar).toHaveBeenCalledTimes(1);
   });
 
-  it("nao aparece enquanto a busca esta em andamento", () => {
+  it("durante a busca continua na tela, desabilitado e dizendo que busca", () => {
+    // Some-lo seria tirar a unica resposta ao toque nos primeiros segundos, em
+    // que mais nada muda na tela. Desabilitado impede o segundo toque disparar
+    // duas buscas ao mesmo tempo.
     montar({ podeRecarregar: true, carregando: true });
 
+    expect(screen.getByRole("button", { name: /Buscando/ })).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: /Tentar de novo/ }),
     ).not.toBeInTheDocument();

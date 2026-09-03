@@ -198,6 +198,28 @@ describe("PontoScreen (sessoes)", () => {
       expect(screen.queryByText(/inesperado/i)).not.toBeInTheDocument();
     });
 
+    it("a nova tentativa nao carrega o veredito da anterior", async () => {
+      // Flagrado no iPhone: a tela mostrava "o servidor esta acordando" e "o
+      // servidor nao respondeu a tempo" ao mesmo tempo. Uma diz que esta
+      // tentando, a outra que desistiu -- as duas juntas nao podem ser verdade,
+      // e o efeito pratico e parecer que o toque no botao nao pegou.
+      vi.mocked(buscarSessoes).mockRejectedValue(new ErroDeRede("caiu"));
+      render(<PontoScreen />);
+
+      const botao = await screen.findByRole("button", { name: /Tentar de novo/ });
+      expect(screen.getByText(/nao respondeu a tempo/i)).toBeInTheDocument();
+
+      // Uma tentativa que nunca resolve: congela a tela no instante em que a
+      // busca esta em curso, que e exatamente o momento da captura.
+      vi.mocked(buscarSessoes).mockReturnValue(new Promise(() => {}));
+      await userEvent.click(botao);
+
+      await waitFor(() =>
+        expect(screen.queryByText(/nao respondeu a tempo/i)).not.toBeInTheDocument(),
+      );
+      expect(screen.getByRole("button", { name: /Buscando/ })).toBeDisabled();
+    });
+
     it("a leitura falhada oferece uma saida, em vez de tela morta", async () => {
       vi.mocked(buscarSessoes).mockRejectedValue(new ErroDeRede("caiu"));
       render(<PontoScreen />);

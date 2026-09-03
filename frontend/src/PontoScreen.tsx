@@ -88,6 +88,15 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     if (!token) return;
     let avisoDeDemora: ReturnType<typeof setTimeout> | undefined;
 
+    // O veredito da tentativa ANTERIOR sai da tela antes de a nova comecar.
+    // Sem isto, tocar em "tentar de novo" deixava "o servidor nao respondeu a
+    // tempo" no ar junto do aviso de que ele estava acordando -- duas frases que
+    // se contradizem, e a segunda tentativa parecia nao ter acontecido.
+    setErro(null);
+    // E marcar que ha busca em curso: e o que da resposta imediata ao toque e o
+    // que impede um segundo toque disparar duas buscas ao mesmo tempo.
+    setCarregando(true);
+
     try {
       // Leitura pode ser repetida a vontade: repetir um GET nao muda nada no
       // servidor. E o que faz o cold start do Render deixar de ser um erro na

@@ -123,11 +123,20 @@ export function TreinoScreen({
 
           Os dois nunca aparecem juntos: `podeTentarDeNovo` so e ligado quando a
           leitura de verificacao DEU certo, e `podeRecarregar` quando ela falhou. */}
-      {podeRecarregar && !carregando && (
+      {podeRecarregar && (
         <div className="saida-de-erro">
-          <button type="button" className="btn-mini" onClick={onRecarregar}>
+          {/* Fica na tela durante a busca, desabilitado e com o rotulo trocado,
+              em vez de desaparecer. Sumir tiraria a unica resposta ao toque
+              justamente nos primeiros segundos, em que nada mais muda -- e daria
+              a impressao de que o toque nao pegou. */}
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={onRecarregar}
+            disabled={carregando}
+          >
             <RotateCcw size={14} />
-            Tentar de novo
+            {carregando ? "Buscando..." : "Tentar de novo"}
           </button>
         </div>
       )}
