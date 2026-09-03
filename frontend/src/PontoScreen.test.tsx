@@ -7,6 +7,7 @@ import type {
   MapaDoAno,
   MetaSemanal,
   PaginaSessoes,
+  ResumoSessoes,
   Sessao,
   StatusSessao,
 } from "./types";
@@ -98,7 +99,15 @@ function sessao(over: Partial<Sessao> & { dayKey: string }): Sessao {
   };
 }
 
-function pagina(over: Partial<PaginaSessoes> = {}): PaginaSessoes {
+// O tipo aceita `resumo` PARCIAL porque a implementacao abaixo ja espalha o
+// padrao por cima. Antes ele exigia o objeto inteiro, e cada teste repetia
+// `{ ...pagina().resumo, campo }` -- contorno para um tipo que mentia sobre o
+// que a funcao suporta.
+function pagina(
+  over: Omit<Partial<PaginaSessoes>, "resumo"> & {
+    resumo?: Partial<ResumoSessoes>;
+  } = {},
+): PaginaSessoes {
   return {
     itens: over.itens ?? [],
     proximoCursor: over.proximoCursor ?? null,
@@ -534,6 +543,99 @@ describe("PontoScreen (sessoes)", () => {
       await screen.findByText("Falhou");
 
       expect(screen.getByRole("button", { name: "Começar treino" })).toBeEnabled();
+    });
+  });
+
+  // O caso chato: a escrita falhou e NAO se sabe onde. Pode nao ter saido do
+  // celular, ou pode ter sido processada e a resposta ter se perdido. Repetir
+  // cegamente inverteria o estado no segundo caso -- finalizaria o treino que a
+  // propria chamada acabou de abrir, deixando uma sessao de 0 minuto.
+  describe("falha no botao de treino: verifica em vez de repetir", () => {
+    it("valeu apesar do erro: confirma, e NAO oferece tentar de novo", async () => {
+      const aberta = sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null });
+      // Primeira leitura: fora do treino. Depois da falha: treino aberto -- ou
+      // seja, o toque chegou e so a resposta se perdeu.
+      vi.mocked(buscarSessoes)
+        .mockResolvedValueOnce(pagina())
+        .mockResolvedValue(pagina({ resumo: { emAndamento: aberta } }));
+      vi.mocked(alternarTreino).mockRejectedValue(new ApiError("Falha ao responder"));
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+
+      expect(await screen.findByText("Treino iniciado.")).toBeInTheDocument();
+      // Mostrar erro aqui seria mentir, e faria a pessoa tocar de novo --
+      // desfazendo o treino que acabou de comecar.
+      expect(screen.queryByText("Falha ao responder")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Tentar de novo/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("nao valeu: mostra o erro e oferece tentar de novo", async () => {
+      // Estado igual antes e depois: o toque nao chegou ao servidor.
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockRejectedValue(
+        new ApiError("Nao deu para registrar"),
+      );
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+
+      expect(await screen.findByText("Nao deu para registrar")).toBeInTheDocument();
+      expect(
+        await screen.findByRole("button", { name: /Tentar de novo/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("o botao de tentar de novo chama o servidor outra vez", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockRejectedValue(new ApiError("caiu"));
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+      vi.mocked(alternarTreino).mockClear();
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Tentar de novo/ }),
+      );
+
+      expect(alternarTreino).toHaveBeenCalledTimes(1);
+    });
+
+    it("o toque seguinte limpa o convite anterior de tentar de novo", async () => {
+      // Sem isto o botao ficaria na tela depois de a acao dar certo, sugerindo
+      // repetir algo que ja valeu -- e repetir aqui INVERTE o treino.
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockRejectedValueOnce(new ApiError("caiu"));
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+      await screen.findByRole("button", { name: /Tentar de novo/ });
+
+      const aberta = sessao({ dayKey: CHAVE_HOJE, status: "OPEN", endedAt: null });
+      vi.mocked(alternarTreino).mockResolvedValue(aberta);
+      vi.mocked(buscarSessoes).mockResolvedValue(
+        pagina({ resumo: { emAndamento: aberta } }),
+      );
+
+      await userEvent.click(
+        screen.getByRole("button", { name: /Tentar de novo/ }),
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /Tentar de novo/ }),
+        ).not.toBeInTheDocument(),
+      );
     });
   });
 

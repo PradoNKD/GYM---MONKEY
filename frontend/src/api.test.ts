@@ -6,6 +6,7 @@ import {
   buscarSessoes,
   corrigirSessao,
   entrar,
+  ErroDeRede,
   listarUsuarios,
   registrar,
 } from "./api";
@@ -192,14 +193,25 @@ describe("api", () => {
   });
 
   describe("tratamento de erro", () => {
-    it("lanca ApiError com a mensagem do servidor", async () => {
+    it("lanca ApiError com a mensagem E o status do servidor", async () => {
+      // O status passou a viajar no erro porque quem decide se vale nova
+      // tentativa precisa separar "o proxy ainda esta subindo a aplicacao"
+      // (502/503/504) de "o servidor pensou e disse nao" (4xx). Sem ele, so
+      // restaria adivinhar pelo texto da mensagem.
       fetchMock.mockResolvedValue(
         respostaErro({ message: "E-mail ou senha invalidos" }, 401),
       );
 
-      await expect(
-        entrar({ email: "f@example.com", password: "errada" }),
-      ).rejects.toThrowError(new ApiError("E-mail ou senha invalidos"));
+      const erro = await entrar({
+        email: "f@example.com",
+        password: "errada",
+      }).catch((e: unknown) => e);
+
+      expect(erro).toBeInstanceOf(ApiError);
+      expect((erro as InstanceType<typeof ApiError>).message).toBe(
+        "E-mail ou senha invalidos",
+      );
+      expect((erro as InstanceType<typeof ApiError>).status).toBe(401);
     });
 
     it("junta com virgula quando o servidor devolve lista de mensagens", async () => {
@@ -250,12 +262,16 @@ describe("api", () => {
       await expect(buscarSessoes("token")).rejects.toBeInstanceOf(ApiError);
     });
 
-    it("propaga falha de rede (servidor fora do ar) sem virar ApiError", async () => {
+    it("falha de transporte vira ErroDeRede, nao ApiError", async () => {
+      // Sao categorias diferentes de proposito: ApiError e resposta que o
+      // servidor PENSOU; ErroDeRede e nao ter havido resposta nenhuma. Insistir
+      // faz sentido na segunda e nao na primeira.
       fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
       const promessa = buscarSessoes("token");
 
       await expect(promessa).rejects.toThrow("Failed to fetch");
+      await expect(promessa).rejects.toBeInstanceOf(ErroDeRede);
       await expect(promessa).rejects.not.toBeInstanceOf(ApiError);
     });
   });

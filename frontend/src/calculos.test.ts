@@ -9,6 +9,7 @@ import {
   rotuloDoDia,
   mensagemDeSucesso,
   temFimConfiavel,
+  toggleFoiAplicado,
 } from "./calculos";
 import type { Sessao, StatusSessao } from "./types";
 
@@ -345,5 +346,22 @@ describe("mensagemDeSucesso", () => {
     expect(msg).toContain("5min");
     expect(msg).toContain("nao conta na semana");
     expect(msg).toContain("20min");
+  });
+});
+
+describe("toggleFoiAplicado", () => {
+  // O cenario: a requisicao falhou e nao se sabe se ela chegou ao servidor.
+  // Repetir seria perigoso -- entao a gente pergunta como ficou e compara.
+  it("comecou o treino: nao havia aberto, agora ha", () => {
+    expect(toggleFoiAplicado(false, true)).toBe(true);
+  });
+
+  it("finalizou o treino: havia aberto, agora nao ha", () => {
+    expect(toggleFoiAplicado(true, false)).toBe(true);
+  });
+
+  it("nada mudou: o toque nao chegou, vale oferecer tentar de novo", () => {
+    expect(toggleFoiAplicado(false, false)).toBe(false);
+    expect(toggleFoiAplicado(true, true)).toBe(false);
   });
 });

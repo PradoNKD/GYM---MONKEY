@@ -20,7 +20,9 @@ import {
   agruparSessoesPorDia,
   isoParaDatetimeLocal,
   mensagemDeSucesso,
+  toggleFoiAplicado,
 } from "./calculos";
+import { AVISO_DEMORA_MS, comRetentativa } from "./rede";
 import type {
   MapaDoAno as Mapa,
   PaginaSessoes,
@@ -69,23 +71,45 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   // onde a pessoa estava digitando -- em celular, muitas vezes fora da tela.
   const [erroCorrecao, setErroCorrecao] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  // O backend dorme no plano free do Render e leva 30 a 60s para acordar. Sem
+  // dizer isso, um "Carregando..." de um minuto parece app travado.
+  const [acordando, setAcordando] = useState(false);
+  // Guarda que o ultimo toque no botao de treino nao chegou a valer, para
+  // oferecer "tentar de novo" em vez de so mostrar um erro e deixar a pessoa
+  // sem saber se o treino comecou.
+  const [toqueNaoAplicado, setToqueNaoAplicado] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!token) return;
+    let avisoDeDemora: ReturnType<typeof setTimeout> | undefined;
+
     try {
-      // Numa ida so: o mapa muda exatamente quando o historico muda.
-      const [proxima, novoMapa] = await Promise.all([
-        buscarSessoes(token),
-        buscarMapa(token),
-      ]);
+      // Leitura pode ser repetida a vontade: repetir um GET nao muda nada no
+      // servidor. E o que faz o cold start do Render deixar de ser um erro na
+      // cara da pessoa e virar uma espera explicada.
+      const [proxima, novoMapa] = await comRetentativa(
+        () => Promise.all([buscarSessoes(token), buscarMapa(token)]),
+        {
+          aoDemorar: () => {
+            // Espera antes de avisar: numa rede boa a segunda tentativa resolve
+            // em milissegundos, e piscar "acordando o servidor" nesse caso
+            // assusta sem motivo.
+            avisoDeDemora = setTimeout(() => setAcordando(true), AVISO_DEMORA_MS);
+          },
+        },
+      );
+
       setPagina(proxima);
       setMapa(novoMapa);
       if (proxima.resumo.conquistas.novas.length > 0) setFestaFechada(false);
+      return proxima;
     } catch (error) {
       setErro(
         error instanceof ApiError ? error.message : "Nao foi possivel carregar o historico",
       );
     } finally {
+      clearTimeout(avisoDeDemora);
+      setAcordando(false);
       setCarregando(false);
     }
   }, [token]);
@@ -137,7 +161,13 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
     if (!token) return;
     setErro(null);
     setSucesso(null);
+    setToqueNaoAplicado(false);
     setEnviando(true);
+
+    // Guardado ANTES da chamada: se ela falhar sem dizer onde, este e o unico
+    // jeito de descobrir se o toque valeu -- comparando com o que o servidor
+    // disser depois.
+    const haviaTreinoAberto = (resumo?.emAndamento ?? null) !== null;
 
     try {
       const sessao = await alternarTreino(token);
@@ -154,9 +184,44 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
         setRegistrandoNovo(true);
       }
     } catch (error) {
-      setErro(
-        error instanceof ApiError ? error.message : "Nao foi possivel registrar o treino",
+      // A escrita falhou, e NAO se sabe onde: pode nao ter saido do celular, ou
+      // pode ter sido processada e a resposta ter se perdido. Repetir seria
+      // perigoso -- inverteria o estado no segundo caso, finalizando o treino
+      // que acabou de abrir. Entao a gente PERGUNTA como ficou.
+      const paginaAtual = await carregar();
+
+      if (paginaAtual === undefined) {
+        // Nem a verificacao passou: sem saber como ficou, a unica coisa honesta
+        // e dizer isso e deixar a pessoa tentar de novo.
+        setErro(
+          "Nao foi possivel falar com o servidor. Verifique a conexao e recarregue para ver como ficou.",
+        );
+        setEnviando(false);
+        return;
+      }
+
+      const aplicado = toggleFoiAplicado(
+        haviaTreinoAberto,
+        (paginaAtual.resumo.emAndamento ?? null) !== null,
       );
+
+      if (aplicado) {
+        // Valeu, apesar do erro. Mostrar erro aqui seria mentir sobre o que
+        // aconteceu, e faria a pessoa tocar de novo -- desfazendo.
+        setErro(null);
+        setSucesso(
+          paginaAtual.resumo.emAndamento
+            ? "Treino iniciado."
+            : "Treino finalizado.",
+        );
+      } else {
+        setToqueNaoAplicado(true);
+        setErro(
+          error instanceof ApiError
+            ? error.message
+            : "Nao deu para registrar agora. O treino NAO foi alterado.",
+        );
+      }
     } finally {
       setEnviando(false);
     }
@@ -312,6 +377,8 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           onFecharFesta={fecharFesta}
           erro={erro}
           sucesso={sucesso}
+          acordando={acordando}
+          podeTentarDeNovo={toqueNaoAplicado}
           registro={
             sessaoRecemFinalizada
               ? {

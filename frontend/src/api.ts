@@ -1,3 +1,4 @@
+import { ErroDeRede } from "./rede";
 import type {
   AuthResponse,
   CatalogoDeConquistas,
@@ -15,7 +16,24 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-class ApiError extends Error {}
+/**
+ * Erro que o servidor RESPONDEU.
+ *
+ * Carrega o `status` porque quem decide se vale nova tentativa precisa
+ * distinguir "o proxy ainda esta subindo a aplicacao" (502/503/504) de "o
+ * servidor pensou e disse nao" (4xx). Sem o status, so restaria adivinhar pelo
+ * texto da mensagem.
+ */
+class ApiError extends Error {
+  // Campo declarado fora do construtor: o projeto usa `erasableSyntaxOnly`, que
+  // proibe propriedade de parametro (`constructor(readonly status)`).
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function request<T>(
   path: string,
@@ -23,19 +41,32 @@ async function request<T>(
 ): Promise<T> {
   const { token, headers, ...rest } = options;
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+    });
+  } catch (causa) {
+    // `fetch` so rejeita quando nao houve resposta nenhuma: sem rede, DNS,
+    // conexao cortada. Isso e categoria diferente de um erro que o servidor
+    // respondeu, e a diferenca decide se vale insistir.
+    throw new ErroDeRede(
+      causa instanceof Error ? causa.message : "Falha de conexao",
+    );
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     const message = body?.message ?? "Erro inesperado ao falar com o servidor";
-    throw new ApiError(Array.isArray(message) ? message.join(", ") : message);
+    throw new ApiError(
+      Array.isArray(message) ? message.join(", ") : message,
+      response.status,
+    );
   }
 
   if (response.status === 204) {
@@ -44,6 +75,12 @@ async function request<T>(
 
   return response.json() as Promise<T>;
 }
+
+// A politica de nova tentativa NAO vive aqui. Ela e decisao de experiencia de
+// uso -- quantas vezes insistir, quanto esperar, quando avisar que o servidor
+// esta acordando -- e depende de qual tela esta esperando. Esta camada so
+// classifica a falha (ErroDeRede contra ApiError com status) e deixa quem chamou
+// decidir. Ver rede.ts e o `carregar` do PontoScreen.
 
 export function registrar(data: {
   name: string;
@@ -180,4 +217,4 @@ export function atualizarUsuario(
   });
 }
 
-export { ApiError };
+export { ApiError, ErroDeRede };

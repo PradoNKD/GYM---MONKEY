@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, RotateCcw, TriangleAlert } from "lucide-react";
 import {
   ConviteDeRecomeco,
   FestaDeConquistas,
@@ -39,6 +39,8 @@ export function TreinoScreen({
   onFecharFesta,
   erro,
   sucesso,
+  acordando,
+  podeTentarDeNovo,
   registro,
 }: {
   resumo: ResumoSessoes | undefined;
@@ -51,6 +53,10 @@ export function TreinoScreen({
   onFecharFesta: () => void;
   erro: string | null;
   sucesso: string | null;
+  /** O servidor esta acordando (cold start do plano free do Render). */
+  acordando: boolean;
+  /** O ultimo toque NAO valeu: oferece repetir sem risco de inverter. */
+  podeTentarDeNovo: boolean;
   /** Presente so no instante seguinte ao check-out. */
   registro: {
     sessao: Sessao;
@@ -86,6 +92,16 @@ export function TreinoScreen({
 
       {conquistas && <ResumoConquistas conquistas={conquistas} />}
 
+      {/* Espera explicada em vez de botao que parece travado: o backend dorme
+          no plano free e leva 30 a 60s para acordar. */}
+      {acordando && (
+        <p className="aviso-acordando" role="status">
+          <TriangleAlert size={14} />
+          O servidor estava dormindo e esta acordando. Isso leva uns segundos na
+          primeira vez do dia.
+        </p>
+      )}
+
       {erro && <p className="auth-erro">{erro}</p>}
       {sucesso && (
         <p className="aviso-sucesso" role="status">
@@ -102,6 +118,16 @@ export function TreinoScreen({
       >
         {enviando ? "Registrando..." : emAndamento ? "Finalizar treino" : "Começar treino"}
       </button>
+
+      {/* Aparece so quando ficou PROVADO que o toque nao valeu -- o servidor foi
+          consultado e o estado nao mudou. Sem essa prova, oferecer "tentar de
+          novo" convidaria a inverter um treino que ja tinha comecado. */}
+      {podeTentarDeNovo && !enviando && (
+        <button type="button" className="btn-mini" onClick={onAlternar}>
+          <RotateCcw size={14} />
+          Tentar de novo
+        </button>
+      )}
 
       {registro && (
         <RegistroTreino

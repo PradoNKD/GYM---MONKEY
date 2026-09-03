@@ -157,3 +157,28 @@ export function mensagemDeSucesso(sessao: Sessao, duracaoMinimaMin: number): str
 
   return `Treino corrigido: ${duracao}. Abaixo de ${duracaoMinimaMin}min, entao nao conta na semana.`;
 }
+
+/**
+ * O toque em "Começar/Finalizar treino" chegou a valer no servidor?
+ *
+ * Serve para um caso especifico e chato: a requisicao falhou, mas **nao se sabe
+ * onde**. Pode nao ter saido do celular -- e ai nada aconteceu -- ou pode ter
+ * sido processada e a RESPOSTA ter se perdido no caminho, e ai o treino comecou
+ * (ou terminou) sem o app saber.
+ *
+ * Por isso escrita nao se repete cegamente: repetir no segundo caso inverteria
+ * o estado, finalizando o treino que a propria chamada acabou de abrir, e a
+ * pessoa ficaria com uma sessao de 0 minuto achando que nada aconteceu. O que
+ * se faz e **perguntar ao servidor** como as coisas ficaram e comparar com o
+ * que se tinha antes.
+ *
+ * A comparacao e o estado "ha treino aberto?" antes e depois: se virou, o toque
+ * valeu. E o unico sinal necessario, porque o toggle so faz isso -- abre ou
+ * fecha.
+ */
+export function toggleFoiAplicado(
+  haTreinoAbertoAntes: boolean,
+  haTreinoAbertoDepois: boolean,
+): boolean {
+  return haTreinoAbertoAntes !== haTreinoAbertoDepois;
+}

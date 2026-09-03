@@ -1350,3 +1350,27 @@ body.com-abas .install-hint {
      tocar nela fecharia junto com o "toque fora". */
   white-space: normal;
 }
+
+/* --- Aviso de servidor acordando (cold start do plano free) --- */
+
+/* Nao usa a cor de perigo: nao e erro, e espera. Vermelho aqui ensinaria a
+   pessoa a achar que o app quebrou justamente quando ele esta funcionando. */
+.aviso-acordando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  font-size: var(--txt-sm);
+  line-height: 1.35;
+  text-align: left;
+}
+
+.aviso-acordando svg {
+  flex-shrink: 0;
+  color: var(--texto-3);
+}
