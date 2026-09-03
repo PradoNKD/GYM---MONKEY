@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PontoScreen } from "./PontoScreen";
-import { ApiError } from "./api";
+import { ApiError, ErroDeRede } from "./api";
 import type {
   MapaDoAno,
   MetaSemanal,
@@ -558,7 +558,9 @@ describe("PontoScreen (sessoes)", () => {
       vi.mocked(buscarSessoes)
         .mockResolvedValueOnce(pagina())
         .mockResolvedValue(pagina({ resumo: { emAndamento: aberta } }));
-      vi.mocked(alternarTreino).mockRejectedValue(new ApiError("Falha ao responder"));
+      // ErroDeRede, e nao ApiError: quando a RESPOSTA se perde, nao houve
+      // resposta nenhuma para virar ApiError. Este e o erro que de fato chega.
+      vi.mocked(alternarTreino).mockRejectedValue(new ErroDeRede("Failed to fetch"));
 
       render(<PontoScreen />);
       await userEvent.click(
@@ -568,17 +570,37 @@ describe("PontoScreen (sessoes)", () => {
       expect(await screen.findByText("Treino iniciado.")).toBeInTheDocument();
       // Mostrar erro aqui seria mentir, e faria a pessoa tocar de novo --
       // desfazendo o treino que acabou de comecar.
-      expect(screen.queryByText("Falha ao responder")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /Tentar de novo/ }),
       ).not.toBeInTheDocument();
     });
 
-    it("nao valeu: mostra o erro e oferece tentar de novo", async () => {
+    it("nao valeu por falta de rede: mostra o erro e oferece tentar de novo", async () => {
       // Estado igual antes e depois: o toque nao chegou ao servidor.
       vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockRejectedValue(new ErroDeRede("Failed to fetch"));
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+
+      expect(
+        await screen.findByText(/O treino NAO foi alterado/),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole("button", { name: /Tentar de novo/ }),
+      ).toBeInTheDocument();
+    });
+
+    // A regra: o convite de tentar de novo so vale quando repetir pode dar
+    // outro resultado. Sem esta separacao, um veredito do servidor viria com um
+    // botao que so devolve a mesma recusa.
+    it("veredito do servidor (cooldown): mostra a razao e NAO oferece tentar de novo", async () => {
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
       vi.mocked(alternarTreino).mockRejectedValue(
-        new ApiError("Nao deu para registrar"),
+        new ApiError("Aguarde 12 min para iniciar outro treino", 400),
       );
 
       render(<PontoScreen />);
@@ -586,7 +608,28 @@ describe("PontoScreen (sessoes)", () => {
         await screen.findByRole("button", { name: "Começar treino" }),
       );
 
-      expect(await screen.findByText("Nao deu para registrar")).toBeInTheDocument();
+      // A mensagem do servidor tem de aparecer: ela ensina o que fazer (esperar).
+      expect(
+        await screen.findByText("Aguarde 12 min para iniciar outro treino"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Tentar de novo/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("servidor ainda subindo (503): oferece tentar de novo", async () => {
+      // 503 e o proxy respondendo enquanto a aplicacao acorda. Aqui repetir tem
+      // chance real de funcionar, entao o botao cabe.
+      vi.mocked(buscarSessoes).mockResolvedValue(pagina());
+      vi.mocked(alternarTreino).mockRejectedValue(
+        new ApiError("Service Unavailable", 503),
+      );
+
+      render(<PontoScreen />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Começar treino" }),
+      );
+
       expect(
         await screen.findByRole("button", { name: /Tentar de novo/ }),
       ).toBeInTheDocument();
@@ -594,7 +637,7 @@ describe("PontoScreen (sessoes)", () => {
 
     it("o botao de tentar de novo chama o servidor outra vez", async () => {
       vi.mocked(buscarSessoes).mockResolvedValue(pagina());
-      vi.mocked(alternarTreino).mockRejectedValue(new ApiError("caiu"));
+      vi.mocked(alternarTreino).mockRejectedValue(new ErroDeRede("caiu"));
 
       render(<PontoScreen />);
       await userEvent.click(
@@ -613,7 +656,7 @@ describe("PontoScreen (sessoes)", () => {
       // Sem isto o botao ficaria na tela depois de a acao dar certo, sugerindo
       // repetir algo que ja valeu -- e repetir aqui INVERTE o treino.
       vi.mocked(buscarSessoes).mockResolvedValue(pagina());
-      vi.mocked(alternarTreino).mockRejectedValueOnce(new ApiError("caiu"));
+      vi.mocked(alternarTreino).mockRejectedValueOnce(new ErroDeRede("caiu"));
 
       render(<PontoScreen />);
       await userEvent.click(

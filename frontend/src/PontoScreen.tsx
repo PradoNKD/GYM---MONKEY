@@ -22,7 +22,7 @@ import {
   mensagemDeSucesso,
   toggleFoiAplicado,
 } from "./calculos";
-import { AVISO_DEMORA_MS, comRetentativa } from "./rede";
+import { AVISO_DEMORA_MS, comRetentativa, ehRetentavel } from "./rede";
 import type {
   MapaDoAno as Mapa,
   PaginaSessoes,
@@ -215,7 +215,13 @@ export function PontoScreen({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
             : "Treino finalizado.",
         );
       } else {
-        setToqueNaoAplicado(true);
+        // O convite de tentar de novo so cabe quando repetir tem chance de
+        // mudar o resultado: nao houve resposta, ou o proxy ainda estava
+        // subindo a aplicacao. Num veredito pensado do servidor ("aguarde 12
+        // min para iniciar outro treino") o botao mentiria -- prometeria
+        // resolver e devolveria a mesma recusa. E a mesma regra do retry
+        // automatico, reusada de proposito: a pergunta e identica.
+        setToqueNaoAplicado(ehRetentavel(error));
         setErro(
           error instanceof ApiError
             ? error.message
