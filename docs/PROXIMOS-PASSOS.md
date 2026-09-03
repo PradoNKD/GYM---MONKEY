@@ -4,7 +4,7 @@ Atividades **em aberto**. Este documento existe pelo mesmo motivo do
 [HANDOFF](HANDOFF.md): vive no repositório para que um `git clone` entregue o
 contexto inteiro, sem depender de histórico de chat.
 
-Última atualização: 2026-08-31.
+Última atualização: 2026-09-03.
 
 Origem: análise de mercado de apps de academia (apps globais, mercado
 brasileiro e evidência de gamificação) cruzada com auditoria do código.
@@ -13,7 +13,76 @@ Documento visual completo:
 
 ---
 
-## Estado atual — onde paramos (2026-09-02)
+## Estado atual — onde paramos (2026-09-03)
+
+### Cold start e falha de rede — ENTREGUE
+
+Seis correções, e **quatro das seis saíram do teste no iPhone real**, não da
+suíte automatizada. Vale registrar porque diz onde a suíte é cega.
+
+**O problema de origem:** o backend roda no plano free do Render, dorme depois de
+~15 min e leva 30 a 60s para acordar. Isso acontece com sinal ótimo, todo dia, e
+fazia a primeira abertura do dia mostrar erro na porta da academia.
+
+- `b5c3e06` — nova tentativa com espera crescente (soma 27s, cobrindo a janela do
+  Render) e, passados 4s, um aviso explicando que o servidor está acordando. Em
+  cor **neutra**: vermelho ali ensinaria a desconfiar do app justamente quando
+  ele está funcionando. Insiste só em 502/503/504 e falha de transporte — **4xx
+  fica fora**, é veredito pensado e insistir gasta cota de rate limit. Se o
+  aparelho **sabe** que está offline, desiste na hora.
+- No mesmo commit: **escrita não se repete, se verifica.** Repetir o
+  `POST /sessions/toggle` inverteria o estado quando foi a *resposta* que se
+  perdeu — finalizaria o treino que a primeira chamada acabou de abrir. Então ao
+  falhar o app **pergunta ao servidor como ficou** (`toggleFoiAplicado`) e
+  compara com o estado anterior.
+- `612b9f5` — o "Tentar de novo" só aparece quando repetir pode mudar algo.
+  Estava sendo oferecido até no **cooldown** ("Aguarde 12 min para iniciar outro
+  treino"), onde repetir devolve a mesma recusa. Reusa `ehRetentavel`: a pergunta
+  é idêntica à do retry automático.
+- `ffee493` — a falha de leitura deixou de ser beco sem saída. A mensagem era
+  "Erro inesperado ao falar com o servidor", o rótulo de último recurso da
+  `api.ts`, alcançado **por acidente** (o 502 do proxy vem em HTML, sem campo de
+  mensagem). Agora `mensagemDeFalhaNaLeitura` decide o texto na ordem que
+  importa: offline primeiro (estando sem rede, tudo que se diga do servidor é
+  chute), depois transporte/proxy, e só no fim o texto do erro — **e apenas se
+  veio de `ApiError`**, porque a mensagem de um `Error` comum é recado de
+  programador ("Failed to fetch"), não informação para quem está na academia.
+- `6bfd4c9` — o botão encostava no "Começar treino": o reset global zera margem,
+  o `.btn-mini` não tem margem própria e nas outras telas herdava **por
+  acidente** os 24px do `.btn` acima dele. E o que isso escondia: o botão
+  principal ficava **ativo** sem o app saber se havia treino aberto.
+- `15d6cbf` — flagrado na captura do iPhone: "o servidor está acordando" e "o
+  servidor não respondeu a tempo" **na tela ao mesmo tempo**. O `carregar` não
+  limpava o erro **ao começar**, só ao terminar.
+- `9938c29` — a pílula "Fora do treino" afirmava estado não lido. Pré-existente,
+  visível em todo carregamento; só ficou óbvio porque o erro dura 30s. Esconde
+  quando não há dado **nenhum** — se uma leitura anterior deu certo, o que está
+  na tela é fato, só velho.
+
+**Onde a suíte era cega, e por quê:** ela verifica o que a tela *diz*, não como
+as frases se combinam nem como as caixas se encostam. Contradição entre dois
+avisos, encavalamento por margem herdada e rótulo que mente sobre estado
+desconhecido passaram todos por uma suíte verde. Só o aparelho pegou.
+
+**Dois erros meus no caminho, registrados porque a lição se repete:** pus o
+retry dentro da `api.ts` e cada leitura passou a insistir 27s, estourando o
+tempo dos testes — sintoma de projeto errado, porque política de retry é decisão
+de experiência de uso, não de transporte. E escrevi "no fim, mostre o texto do
+erro" sem separar erro do servidor de `Error` de programador.
+
+**Mais testes que passavam por caso irreal** (o quarto e o quinto do dia): três
+usavam `ApiError` **sem status** e um usava `TypeError("Failed to fetch")` para
+simular falha de rede — coisas que a `api.ts` nunca produz, porque ela embrulha
+falha de transporte em `ErroDeRede` e sempre passa o status.
+
+Suíte: **337 no frontend** (era 284) e **339 no backend**, inalterado — nada de
+`backend/` mudou. No ar e verificado no bundle publicado: as seis strings novas
+presentes, as duas antigas ausentes. O `/health` de produção reporta `9957d2e` e
+**está correto** — desde aquele build só mudaram `docs/` e `frontend/`.
+
+---
+
+## Estado anterior (2026-09-02)
 
 ### v1.1 — navegação por abas — ENTREGUE
 
@@ -124,12 +193,34 @@ Commits: `70c6784` (abas), `677d8b9` (aba Treino + dicas), `476d8e2`
 
 ### O que falta da v1.1
 
-- **Offline-first com fila de sync** — e há um **conflito de projeto a decidir
-  antes de codar**: a v0.9 fixou que *timestamp nasce no servidor, nunca é
-  aceito do cliente*, e foi por isso que a correção é auditada. Mas um check-in
-  offline **só existe** se o celular gravar a hora e enviar depois. Tem saída
-  (marcar origem, revalidar a janela no servidor, tratar como correção
-  auditada), mas é decisão de produto, não detalhe de implementação.
+- **Offline-first com fila de sync — DESCARTADO em 2026-09-03.** Decisão do
+  dono do produto, depois de mapeado o custo real: *"não é o momento; talvez se
+  o projeto expandir"*. **Não reofertar** sem que ele traga o assunto.
+
+  Fica registrado o que exigiria, porque o levantamento tem valor se um dia a
+  decisão mudar — e porque três dos quatro itens não são código, são projeto:
+
+  1. **Aceitar horário do cliente, com desconfiança.** A v0.9 fixou que
+     *timestamp nasce no servidor*, e é o que garante o histórico. Precisaria de
+     uma rota que aceite o horário do celular marcando a sessão com origem
+     `CLIENT` e **revalidando** no servidor (nada no futuro, nada fora da janela
+     de 6h, teto de aumento aplicado) — o horário entra como *alegação*, não como
+     fato, e o rastro diz que foi alegada.
+  2. **Idempotência.** A fila reenvia, e reenvio duplicado não pode virar dois
+     treinos. Exige chave de idempotência gerada no celular e guardada no
+     servidor. Sem isso, uma fila é uma máquina de duplicar registros.
+  3. **Reconciliar duas verdades na tela** — e é aqui que mora o risco de
+     reintroduzir o que a v0.9 consertou. Streak, meta e conquistas vêm do
+     servidor; mostrar um toque pendente **sem** recalcular nada localmente
+     provavelmente significa exibi-lo como item separado que não soma em nada até
+     o servidor confirmar.
+  4. **Onde guardar a fila.** `localStorage` não serve (síncrono, e o iOS limpa
+     dados de PWA depois de ~7 dias sem uso). Seria IndexedDB, com Background
+     Sync onde existir — no iOS não existe, então a fila sobe na abertura do app.
+
+  **O gatilho para reabrir é evidência**, não calendário: alguém perder um treino
+  por falta de sinal. Enquanto isso não acontece, o que cobre a dor real é a nova
+  tentativa na leitura + verificação na escrita, entregue em 2026-09-03.
 - **Comprovante compartilhável.**
 - **Onboarding de instalação PWA** — hoje existe a dica flutuante, não um fluxo.
 - Design system: cor e tipografia feitos; falta revisar espaçamento e raio.
@@ -1156,7 +1247,7 @@ de verificar a aprovação.
 | Versão | Foco | Itens principais |
 |---|---|---|
 | **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, 16 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º~~ — **COMPLETA** (28/08 e 31/08) |
-| **v1.1** | Front melhor | ~~Router e abas~~ (Treino/Histórico/Perfil — **sem Grupo**, que entra na v1.3), ~~dark mode~~, ~~design system: cor e tipografia~~ — **entregues em 02/09**. Falta: **offline-first com fila de sync** (tem conflito de timestamp a decidir), onboarding de instalação PWA, comprovante compartilhável |
+| **v1.1** | Front melhor | ~~Router e abas~~ (Treino/Histórico/Perfil — **sem Grupo**, que entra na v1.3), ~~dark mode~~, ~~design system: cor e tipografia~~ — **entregues em 02/09**; ~~cold start e falha de rede tratados~~ — **03/09**. **Offline-first DESCARTADO em 03/09** por decisão do dono do produto. Falta: onboarding de instalação PWA, comprovante compartilhável |
 | **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
 | **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
 | **v1.4** | Notificações | Recap semanal **por e-mail primeiro** (100% da base), Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |

@@ -44,10 +44,23 @@ celular não existe hover, então `title` nunca apareceria) e a tipografia
 padronizada em tokens, com guarda contra valor cru. **Sem aba Grupo**: hoje só
 uma pessoa usa o app, então ela abriria vazia; entra na v1.3.
 
-Da v1.1 faltam **offline-first com fila de sync**, comprovante compartilhável e
-o onboarding de instalação. O offline-first tem um **conflito de projeto a
-decidir antes de codar**, descrito no PROXIMOS-PASSOS: a v0.9 fixou que
-timestamp nasce no servidor, e um check-in offline exige o contrário.
+2026-09-03: **cold start deixou de parecer erro.** O backend dorme no plano free
+do Render e leva 30 a 60s para acordar, o que fazia a primeira abertura do dia
+mostrar erro com sinal ótimo. A leitura agora insiste com espera crescente (27s)
+e explica a espera; a escrita **não se repete, se verifica** — repetir o toggle
+inverteria o treino quando foi a *resposta* que se perdeu. Seis commits, e
+**quatro saíram do teste no iPhone real**: contradição entre dois avisos na
+mesma tela, botões encavalados por margem herdada e rótulo afirmando estado que
+o app não leu passaram todos por uma suíte verde.
+
+**Offline-first foi DESCARTADO em 2026-09-03** por decisão do dono do produto
+("não é o momento; talvez se o projeto expandir"). **Não reofertar** sem que ele
+traga o assunto. O levantamento do que exigiria — aceitar horário do cliente com
+revalidação, idempotência, reconciliar duas verdades na tela e IndexedDB — ficou
+registrado no PROXIMOS-PASSOS, junto com o gatilho para reabrir: alguém perder
+um treino por falta de sinal.
+
+Da v1.1 faltam **comprovante compartilhável** e o **onboarding de instalação**.
 
 A **v0.9 — Fundação está entregue e em produção** (2026-08-27), junto com o
 tema claro/escuro, o polimento mobile, a auditoria de segurança e a trava de
@@ -66,7 +79,7 @@ pedido dos usuários: no check-out dá pra marcar o que treinou, o esforço de 1
 A **v1.0 está completa e em produção** desde 2026-08-31 (build `9957d2e`): além
 da meta semanal, entraram o mapa do ano, 16 marcos, 3 recordes e o *fresh start*
 do 1º do mês. O próximo passo é
-a **v1.1** (router e abas, offline-first, onboarding de PWA) ou a Fase B do
+a **v1.1** (onboarding de PWA, comprovante compartilhável) ou a Fase B do
 registro — esta última só se a Fase A mostrar adesão.
 
 Estado detalhado, pendências manuais e o escopo das próximas versões vivem em
