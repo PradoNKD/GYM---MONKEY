@@ -124,10 +124,12 @@ export function TreinoScreen({
           Os dois nunca aparecem juntos: `podeTentarDeNovo` so e ligado quando a
           leitura de verificacao DEU certo, e `podeRecarregar` quando ela falhou. */}
       {podeRecarregar && !carregando && (
-        <button type="button" className="btn-mini" onClick={onRecarregar}>
-          <RotateCcw size={14} />
-          Tentar de novo
-        </button>
+        <div className="saida-de-erro">
+          <button type="button" className="btn-mini" onClick={onRecarregar}>
+            <RotateCcw size={14} />
+            Tentar de novo
+          </button>
+        </div>
       )}
       {sucesso && (
         <p className="aviso-sucesso" role="status">
@@ -136,11 +138,17 @@ export function TreinoScreen({
         </p>
       )}
 
+      {/* `podeRecarregar` desliga este botao porque, com a leitura falhada, o app
+          NAO sabe se ha treino aberto -- e o rotulo mentiria. Sem resumo ele cai
+          no padrao "Começar treino", mesmo que exista um treino em andamento no
+          servidor, e o toque voltaria com "Você ja tem um treino em andamento".
+          De quebra, sobra uma acao clara na tela em vez de dois botoes
+          competindo pelo dedo. */}
       <button
         type="button"
         className={`btn ${emAndamento ? "btn--checkout" : "btn--checkin"}`}
         onClick={onAlternar}
-        disabled={carregando || enviando}
+        disabled={carregando || enviando || podeRecarregar}
       >
         {enviando ? "Registrando..." : emAndamento ? "Finalizar treino" : "Começar treino"}
       </button>

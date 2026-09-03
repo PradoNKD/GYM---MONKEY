@@ -139,6 +139,21 @@ describe("saida quando a leitura falha", () => {
       screen.queryByRole("button", { name: /Tentar de novo/ }),
     ).not.toBeInTheDocument();
   });
+
+  it("desliga o botao principal: sem leitura, o rotulo dele mentiria", () => {
+    // Sem resumo o botao cai no padrao "Começar treino". Se houvesse um treino
+    // aberto no servidor, o toque voltaria com "Você ja tem um treino em
+    // andamento" -- erro que a pessoa nao causou e nao entende.
+    montar({ podeRecarregar: true, resumo: undefined });
+
+    expect(screen.getByRole("button", { name: "Começar treino" })).toBeDisabled();
+  });
+
+  it("com a leitura em ordem, o botao principal continua ativo", () => {
+    montar();
+
+    expect(screen.getByRole("button", { name: "Começar treino" })).toBeEnabled();
+  });
 });
 
 describe("convite de tentar de novo", () => {

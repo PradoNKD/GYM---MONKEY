@@ -516,6 +516,21 @@
   white-space: nowrap;
 }
 
+/**
+ * Espaco da saida oferecida quando a leitura falha.
+ *
+ * O `.btn-mini` nao tem margem propria -- o reset global zera tudo -- e nas
+ * outras telas ele aparece DEPOIS do botao grande, herdando por acidente os
+ * 24px que o `.btn` carrega embaixo. Aqui ele vem antes, entao encostava na
+ * mensagem de erro em cima e no botao grande embaixo. O espaco fica neste
+ * envelope em vez de no `.btn-mini` para nao mexer nos outros lugares onde ele
+ * ja esta posicionado.
+ */
+.saida-de-erro {
+  display: flex;
+  margin: 12px 0 20px;
+}
+
 .btn-mini:hover:not(:disabled) {
   border-color: var(--texto);
 }
