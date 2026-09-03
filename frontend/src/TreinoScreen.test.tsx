@@ -144,6 +144,23 @@ describe("saida quando a leitura falha", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("sem dado nenhum, a pilula de status nao afirma nada", () => {
+    // "Fora do treino" e o padrao de quando falta resumo -- e um chute. Podia
+    // haver um treino aberto, e a pilula apareceria mentindo logo acima de uma
+    // mensagem dizendo que o app nao conseguiu ler nada.
+    montar({ podeRecarregar: true, resumo: undefined });
+
+    expect(screen.queryByText("Fora do treino")).not.toBeInTheDocument();
+  });
+
+  it("com dado de uma leitura anterior, a pilula continua: e fato, so velho", () => {
+    // A condicao e "nao ha dado nenhum", nao "a leitura falhou". Se uma leitura
+    // anterior deu certo, esconder o que ela trouxe apagaria informacao boa.
+    montar({ podeRecarregar: true });
+
+    expect(screen.getByText("Fora do treino")).toBeInTheDocument();
+  });
+
   it("desliga o botao principal: sem leitura, o rotulo dele mentiria", () => {
     // Sem resumo o botao cai no padrao "Começar treino". Se houvesse um treino
     // aberto no servidor, o toque voltaria com "Você ja tem um treino em

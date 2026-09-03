@@ -94,11 +94,22 @@ export function TreinoScreen({
         </p>
       )}
 
-      <p className={`status ${emAndamento ? "status--in" : "status--out"}`}>
-        {emAndamento
-          ? `Treino em andamento desde ${formatarHorario(emAndamento.startedAt)}`
-          : "Fora do treino"}
-      </p>
+      {/* Sem resumo a pilula nao aparece, em vez de cair no padrao "Fora do
+          treino". Esse padrao e um chute: enquanto o servidor nao responde, pode
+          haver um treino aberto, e a pilula estaria mentindo -- lado a lado com
+          uma mensagem dizendo que o app nao conseguiu ler nada. Ficava visivel
+          por meio segundo no carregamento normal, e por 30 no cold start.
+
+          A condicao e "nao ha dado NENHUM", nao "a leitura falhou": se uma
+          leitura anterior deu certo, o que esta na tela e fato -- so
+          possivelmente velho -- e sumir com ele esconderia informacao boa. */}
+      {resumo && (
+        <p className={`status ${emAndamento ? "status--in" : "status--out"}`}>
+          {emAndamento
+            ? `Treino em andamento desde ${formatarHorario(emAndamento.startedAt)}`
+            : "Fora do treino"}
+        </p>
+      )}
 
       <MetaSemana
         meta={resumo?.meta}
