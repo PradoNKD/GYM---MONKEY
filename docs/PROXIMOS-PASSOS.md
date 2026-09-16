@@ -1328,14 +1328,52 @@ de verificar a aprovação.
 |---|---|---|
 | **v1.0** | Hábito honesto | ~~Meta semanal, streak de semanas, congelamento, recorde pessoal + prêmio na quebra, 16 marcos curados, heatmap do ano, *fresh start* na segunda e no dia 1º~~ — **COMPLETA** (28/08 e 31/08) |
 | **v1.1** | Front melhor | ~~Router e abas~~ (Treino/Histórico/Perfil — **sem Grupo**, que entra na v1.3), ~~dark mode~~, ~~design system: cor e tipografia~~ — **entregues em 02/09**; ~~cold start e falha de rede tratados~~ — **03/09**. **Offline-first DESCARTADO em 03/09** por decisão do dono do produto. Falta: onboarding de instalação PWA, comprovante compartilhável |
-| **v1.2** | Supervisor | Painel "quem sumiu", **aprovação por e-mail**, fila de sessões suspeitas, padrinho/accountability, export CSV/PDF, melhor horário do grupo |
-| **v1.3** | Social | Multi-grupo com convite por link, placar semanal com salvaguardas, pontos STEP UP, duelo 1x1 de 7 dias, kudos, retrospectiva mensal/anual |
-| **v1.4** | Notificações | Recap semanal **por e-mail primeiro** (100% da base), Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |
-| **v2.0** | Registro de treino | ~~Fase A: tipo de treino + nota + esforço 1 a 5 no check-out~~ — **entregue em 2026-08-28**, antecipada por pedido dos usuários. Fase B: catálogo de exercícios, séries, cargas, PRs, gráficos — **só se a Fase A mostrar adesão** |
-| **v2.x** | Condicional | Geofence / QR de validação de local — **só contra fraude observada**, não imaginada |
+| ~~**v1.2**~~ | ~~Supervisor~~ | **CANCELADA em 16/09** |
+| ~~**v1.3**~~ | ~~Social~~ | **CANCELADA em 16/09** |
+| **v1.4** | Notificações | Recap semanal **por e-mail primeiro**, Web Push Android-first com agendamento no servidor, teto duro de 3 por semana |
+| **v2.0** | Registro de treino | ~~Fase A: tipo de treino + nota + esforço 1 a 5 no check-out~~ — **entregue em 2026-08-28**. Fase B: séries, cargas, PRs — o portão mudou, ver abaixo |
+| ~~**v2.x**~~ | ~~Condicional~~ | ~~Geofence / QR~~ — **CANCELADA em 16/09** |
 
-**Ponto de decisão na v1.3**: é onde a ambição (pessoal / portfólio / SaaS)
-passa a decidir arquitetura. Até lá, não é preciso responder.
+## A ambição foi decidida em 16/09: app pessoal, não produto
+
+A tabela acima dizia que essa decisão só seria necessária na v1.3. **Isso estava
+errado, e a realidade mostrou onde.** O plano supunha que as versões sairiam em
+ordem e que usuários se acumulariam no caminho. O app ficou completo até a v1.1
+em 02/09 e seguiu com **um usuário**. A decisão chegou cedo — não porque a v1.3
+se aproximou, mas porque a **v1.2 ficou sem ninguém para servir**: cada item
+dela pressupõe um grupo, e um painel "quem sumiu" que vigia uma pessoa, e essa
+pessoa é o dono do app, não é uma funcionalidade.
+
+Decisão do dono do produto: **isto é app pessoal mais um grupo pequeno de
+acesso liberado, e não um produto vendável.** v1.2 e v1.3 estão canceladas —
+apagadas, não adiadas.
+
+### O filtro que substitui o roadmap
+
+> **"Eu ou alguém que eu convidei usaria isso nesta semana?"**
+
+É respondível hoje, ao contrário de "isso ajudaria um grupo de academia
+genérico?". Toda proposta passa por ele antes de virar código.
+
+**Cancelado:** painel "quem sumiu"; fila de sessões suspeitas; export CSV/PDF
+(era para RH); multi-grupo com convite por link; placar semanal; pontos STEP UP;
+duelo 1x1; geofence/QR; aprovação por e-mail.
+
+**Sobreviveu, com prioridade nova:** a **Fase B** subiu. O portão antigo era "só
+se a Fase A mostrar adesão", mas ele existia para justificar investimento diante
+de uma base de usuários; sendo para quem usa, o portão vira **"você quer?"**.
+Seguem de pé: retrospectiva mensal/anual, recap semanal por e-mail, comprovante
+compartilhável (agora como algo divertido de mandar no grupo, não como alavanca
+de aquisição), onboarding de instalação e o polimento vindo do uso diário.
+
+**O que se perde, dito em voz alta:** o grupo como mecanismo de constância. Para
+muita gente é o que sustenta a ida à academia. Sem ele, o suporte ao hábito vem
+inteiro de streak, meta e conquistas — que já estão construídos.
+
+**Efeito colateral bom:** as restrições de CLT e CREF foram escritas pensando em
+vender para RH e agora encolhem para "nada clínico, nada invasivo". **A de LGPD
+art. 11 continua valendo** — essa nunca foi sobre vender, e sim sobre não
+guardar o que não se deve.
 
 ---
 
