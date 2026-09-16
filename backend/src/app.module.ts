@@ -10,6 +10,7 @@ import {
 import { validateEnv } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ExerciciosModule } from './exercicios/exercicios.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { UsersModule } from './users/users.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     TimeEntriesModule,
     SessionsModule,
+    ExerciciosModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

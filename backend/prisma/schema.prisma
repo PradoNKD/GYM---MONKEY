@@ -35,6 +35,7 @@ model User {
   weeklyGoal    WeeklyGoal?
   weeklyResults WeeklyResult[]
   achievements  Achievement[]
+  exercises     Exercise[]
 }
 
 enum TimeEntryType {
@@ -166,6 +167,7 @@ model WorkoutSession {
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   group       Group?              @relation(fields: [groupId], references: [id])
   corrections SessionCorrection[]
+  sets        ExerciseSet[]
 
   @@index([userId, dayKey])
   @@index([userId, startedAt])
@@ -305,4 +307,67 @@ model Achievement {
   // segura de repetir, como no fechamento semanal.
   @@unique([userId, code])
   @@index([userId])
+}
+
+// --- Registro de treino, Fase B (v2.0) ---
+//
+// A decisao que molda estes dois modelos: **o catalogo se constroi sozinho**.
+// Nao existe lista curada de exercicios no banco nem no codigo. A pessoa digita
+// o nome, ele vira uma linha em Exercise e passa a ser sugestao para sempre.
+//
+// Lista fixa teria o problema de "meu exercicio nao esta aqui". Texto livre
+// solto fragmentaria o dado -- "supino reto", "Supino Reto" e "supino  reto"
+// virariam tres linhas no grafico. Escolher do proprio historico resolve os
+// dois: liberdade na primeira vez, consistencia da segunda em diante.
+
+model Exercise {
+  id     String @id @default(uuid())
+  userId String
+
+  // Como a pessoa escreveu, com acento e caixa. E isto que aparece na tela.
+  name String
+
+  // `name` normalizado (sem acento, minusculo, espaco colapsado). E a chave que
+  // decide se dois nomes sao o mesmo exercicio -- ver `exercicios.ts`.
+  // Guardado em coluna propria, e nao calculado na consulta, para a unicidade
+  // ser garantida pelo banco e nao pela boa vontade de quem escreve a query.
+  slug String
+
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sets ExerciseSet[]
+
+  // Exercicio e por pessoa: o catalogo de um nao polui o do outro.
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+model ExerciseSet {
+  id         String @id @default(uuid())
+  sessionId  String
+  exerciseId String
+
+  // Ordem dentro do exercicio naquela sessao: 1a serie, 2a, 3a.
+  position Int
+
+  reps Int
+
+  // Peso em GRAMAS, inteiro -- nunca float. Carga anda de 1,25 em 1,25 kg,
+  // entao precisa de casa decimal; guardar 42.5 como float devolveria
+  // 42.49999999 em algum lugar, provavelmente num recorde. Inteiro torna
+  // comparacao e soma exatas, ao custo de uma funcao de formatacao.
+  //
+  // `null` quer dizer **peso do corpo**, e nao zero. Por isso serie sem carga
+  // fica fora do volume, em vez de somar zero: inventar um peso seria pior.
+  weightG Int?
+
+  createdAt DateTime @default(now())
+
+  session  WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  // O indice do grafico: todas as series de um exercicio, em ordem de tempo.
+  @@index([exerciseId, createdAt])
 }
