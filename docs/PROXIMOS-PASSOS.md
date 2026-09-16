@@ -34,16 +34,32 @@ para resolver. **A lição é geral: número que vem de documentação de fornec
 entra no código como suposição, não como fato.** Medir custou um `curl -w
 '%{time_starttransfer}'`.
 
-Duas frentes. A janela foi para 90s e o teste passou a exigir os 73 medidos. E,
-o que de fato resolve, `.github/workflows/manter-acordado.yml`: chama `/health`
-de 5 em 5 minutos para nunca haver 15 min de silêncio.
+Duas frentes. A janela foi para 90s e o teste passou a exigir os 73 medidos —
+**essa metade funciona e continua no ar**. A outra era
+`.github/workflows/manter-acordado.yml`, um ping de 5 em 5 minutos.
 
-**Só das 5h às 24h (Brasília), de propósito.** O plano free dá 750 horas de
-instância por mês; acordado o mês inteiro consome ~744 — cabe, mas sem folga, e
-**estoura se houver qualquer outro serviço free na mesma conta Render**.
-Das 5h às 24h dá ~590 horas. O agendador do GitHub atrasa sob carga; se o
-serviço ainda dormir de vez em quando, a alternativa é um monitor externo
-(UptimeRobot, cron-job.org), que não depende da fila do GitHub.
+#### O ping do GitHub Actions não funcionou — removido em 16/09
+
+Medido sobre 142 horas de operação: intervalo **mediano de 139 minutos** onde
+foram pedidos 5, menor intervalo já observado de **92 minutos**, e **100 % dos
+intervalos acima dos 15 min de sono**. O GitHub disparou 40 vezes onde caberiam
+~1.368 — 3 % do combinado. O serviço dormia entre cada par de pings, sem
+exceção. Às 15h46 de uma quarta-feira, dentro da janela, o `/health` levou
+**53 s**.
+
+**O modo de falha é a lição.** O workflow tinha tratamento para "ping que erra
+em silêncio" — se `/health` não devolvesse 200, falhava alto. Mas os pings não
+erravam: as 40 execuções passaram. Eles não eram *chamados*. Nenhuma verificação
+dentro de uma tarefa agendada enxerga que a tarefa não rodou; só medir de fora
+revela. **Verificar que o trabalho deu certo é diferente de verificar que ele
+aconteceu.**
+
+Substituído por um monitor externo (cron-job.org), com o roteiro de configuração
+em [MANTER-ACORDADO.md](MANTER-ACORDADO.md). Ele foi escolhido em vez do
+UptimeRobot porque **permite restringir horários**, e isso decide a conta: o
+plano free do Render dá 750 horas de instância/mês, acordado o mês inteiro
+consome ~744 (sem folga, e **estoura se houver outro serviço free na mesma
+conta**), enquanto das 5h às 24h dá ~590.
 
 ### Sessão: 30 dias, e o 401 finalmente tratado
 

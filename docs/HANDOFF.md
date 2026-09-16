@@ -47,9 +47,11 @@ uma pessoa usa o app, então ela abriria vazia; entra na v1.3.
 2026-09-10: **cold start resolvido, e sessão de 30 dias.** A medição desmentiu
 o que eu havia registrado em 03/09: o cold start real é de **73 segundos**, não
 os "30 a 60" da documentação, e a janela de 27s desistia antes do servidor
-acordar. Agora a janela é de 90s e um workflow (`manter-acordado.yml`) pinga
-`/health` de 5 em 5 min das 5h às 24h para o serviço nunca dormir — não é 24h
-porque o plano free dá 750 horas/mês e acordado o mês todo consome ~744.
+acordar. Agora a janela é de 90s. O workflow que pingava `/health` foi
+**removido em 16/09 por não funcionar** — o GitHub entregava um ping a cada 139
+minutos, não a cada 5, e o serviço dormia entre todos eles; ver
+[MANTER-ACORDADO.md](MANTER-ACORDADO.md), que traz o roteiro do monitor externo
+que o substituiu.
 No mesmo dia, o token passou de 12h para 30 dias e o app finalmente **trata
 401**: antes ele mostrava "Unauthorized" em inglês em vez de voltar ao login.
 
