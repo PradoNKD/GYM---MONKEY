@@ -1391,3 +1391,426 @@ body.com-abas .install-hint {
   flex-shrink: 0;
   color: var(--texto-3);
 }
+
+/* --- Registro de exercicios e series (Fase B) ---
+ *
+ * O contexto manda: a pessoa esta na academia, entre duas series, com a mao
+ * suada e o celular numa mao so. Alvo de toque grande, campo grande, e nenhum
+ * passo a mais do que o necessario. Cor sempre de var(--...), nunca crua.
+ */
+
+/* Utilitarios que faltavam. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.btn-fantasma {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.8rem;
+  min-height: 40px;
+  border: 1px dashed var(--borda);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto-2);
+  font-size: var(--txt-md);
+  font-family: var(--fonte-texto);
+  cursor: pointer;
+}
+
+.btn-fantasma:active {
+  background: var(--superficie-2);
+}
+
+.btn--pequeno {
+  min-height: 44px;
+  font-size: var(--txt-md);
+  padding: 0.6rem 1rem;
+}
+
+/* --- A lista de exercicios do treino --- */
+
+.series-secao {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borda);
+}
+
+.series-titulo {
+  margin: 0 0 0.6rem;
+  font-size: var(--txt-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-rotulo);
+  color: var(--texto-2);
+}
+
+.series-vazio {
+  margin: 0 0 0.75rem;
+  font-size: var(--txt-sm);
+  color: var(--texto-2);
+}
+
+.exercicio-lista {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.exercicio-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--superficie-2);
+  border-radius: 10px;
+  padding: 0.15rem 0.3rem 0.15rem 0;
+}
+
+/* O nome ocupa o espaco todo: e o alvo de toque principal. */
+.exercicio-abrir {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.6rem 0.75rem;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--fonte-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.exercicio-nome {
+  font-size: var(--txt-md);
+  color: var(--texto);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.exercicio-resumo {
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+}
+
+/* --- O editor de series --- */
+
+.exercicio-editor,
+.exercicio-seletor {
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.exercicio-editor-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.exercicio-editor-nome {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--txt-md);
+  color: var(--texto);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exercicio-repetir {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 0.6rem;
+}
+
+.exercicio-dica {
+  margin: 0.5rem 0 0.75rem;
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+}
+
+.serie-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.serie-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.serie-numero {
+  width: 1.1rem;
+  flex: none;
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+  text-align: right;
+}
+
+.serie-campo-rotulo {
+  flex: 1;
+  min-width: 0;
+}
+
+/* `--txt-campo` e 16px e NAO e escolha estetica: abaixo disso o Safari do iOS
+   da zoom sozinho ao focar, e a tela salta no meio do treino. */
+.serie-campo {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.45rem 0.5rem;
+  font-size: var(--txt-campo);
+  font-family: var(--fonte-texto);
+  text-align: center;
+  border: 2px solid var(--borda);
+  border-radius: 9px;
+  background: var(--campo);
+  color: var(--texto);
+}
+
+.serie-campo:focus {
+  outline: none;
+  border-color: var(--marca);
+}
+
+.serie-campo--erro {
+  border-color: var(--perigo);
+}
+
+.serie-x,
+.serie-unidade {
+  flex: none;
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+}
+
+.serie-remover {
+  flex: none;
+}
+
+.serie-add {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* --- Escolher o exercicio --- */
+
+.exercicio-busca {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.exercicio-sugestoes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.exercicio-sugestoes button {
+  padding: 0.5rem 0.7rem;
+  min-height: 40px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: var(--txt-md);
+  font-family: var(--fonte-texto);
+  cursor: pointer;
+}
+
+.exercicio-sugestoes button:active {
+  border-color: var(--marca);
+  color: var(--marca);
+}
+
+.exercicio-criar,
+.exercicio-add {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+/* --- O grafico de progressao --- */
+
+.grafico {
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.grafico-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.grafico-topo > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.grafico-titulo {
+  margin: 0;
+  font-size: var(--txt-md);
+  color: var(--texto);
+}
+
+.grafico-sub {
+  margin: 0.1rem 0 0;
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+}
+
+.grafico-vazio {
+  margin: 0;
+  font-size: var(--txt-sm);
+  color: var(--texto-2);
+}
+
+.grafico-recorde {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  font-size: var(--txt-sm);
+  color: var(--texto-2);
+}
+
+.grafico-recorde strong {
+  color: var(--texto);
+}
+
+.grafico-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Grade recessiva: referencia de altura, nunca protagonista. */
+.grafico-grade {
+  stroke: var(--borda);
+  stroke-width: 1;
+}
+
+/* Serie unica: nao ha legenda, o titulo nomeia o que a linha e. */
+.grafico-linha {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.grafico-ponto {
+  fill: var(--marca);
+  /* Anel da superficie: separa o ponto da linha quando eles se sobrepoem. */
+  stroke: var(--superficie-2);
+  stroke-width: 2;
+}
+
+.grafico-ponto--recorde {
+  fill: var(--superficie-2);
+  stroke: var(--marca);
+}
+
+/* Alvo de toque bem maior que o ponto: o dedo nao tem a mira do mouse. */
+.grafico-alvo {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* Texto usa token de TEXTO, nunca a cor da serie. */
+.grafico-rotulo {
+  fill: var(--texto);
+  font-size: var(--txt-2xs);
+  font-weight: 600;
+}
+
+.grafico-rotulo--ativo {
+  fill: var(--texto);
+}
+
+.grafico-eixo {
+  fill: var(--texto-2);
+  font-size: var(--txt-2xs);
+}
+
+.grafico-detalhe {
+  margin: 0.5rem 0 0;
+  font-size: var(--txt-sm);
+  color: var(--texto-2);
+}
+
+.grafico-detalhe strong {
+  color: var(--texto);
+}
+
+.grafico-variacao {
+  margin: 0.35rem 0 0;
+  font-size: var(--txt-xs);
+  color: var(--texto-2);
+}
+
+.grafico-tabela-btn {
+  margin-top: 0.6rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.grafico-tabela {
+  width: 100%;
+  margin-top: 0.6rem;
+  border-collapse: collapse;
+  font-size: var(--txt-sm);
+}
+
+.grafico-tabela th,
+.grafico-tabela td {
+  padding: 0.35rem 0.25rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borda);
+}
+
+.grafico-tabela th {
+  font-size: var(--txt-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-rotulo);
+  color: var(--texto-2);
+  font-weight: 600;
+}
+
+.grafico-tabela td {
+  color: var(--texto);
+}

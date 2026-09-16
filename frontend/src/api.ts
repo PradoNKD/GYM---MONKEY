@@ -3,7 +3,12 @@ import { avisarSessaoExpirada } from "./sessao";
 import type {
   AuthResponse,
   CatalogoDeConquistas,
+  CatalogoDeExercicios,
   Correcao,
+  ProgressaoDeExercicio,
+  RegistroDeExercicios,
+  Serie,
+  UltimaVezDoExercicio,
   MapaDoAno,
   MetaSemanal,
   PaginaSessoes,
@@ -228,3 +233,72 @@ export function atualizarUsuario(
 }
 
 export { ApiError, ErroDeRede };
+
+// --- Exercicios e series (Fase B) ---
+//
+// Rotas separadas das de sessao pelo mesmo motivo da Fase A: isto e anotacao,
+// nao contagem. Serie e carga nao decidem streak nem meta, entao editar e
+// livre e nao consome a correcao da sessao.
+
+/** O catalogo da pessoa, mais usados primeiro. Alimenta o autocompletar. */
+export function buscarExercicios(token: string) {
+  return request<CatalogoDeExercicios>("/exercicios", { token });
+}
+
+export function buscarExerciciosDoTreino(token: string, sessionId: string) {
+  return request<RegistroDeExercicios>(`/exercicios/treino/${sessionId}`, { token });
+}
+
+/**
+ * Manda a lista INTEIRA de series daquele exercicio no treino.
+ *
+ * PUT porque e idempotente: repetir a chamada nao duplica. Na academia, com
+ * sinal ruim, isso e o que separa "salvou duas vezes" de "registrou oito
+ * series em vez de quatro". Lista vazia apaga o exercicio do treino.
+ */
+export function salvarSeries(
+  token: string,
+  sessionId: string,
+  exercicio: string,
+  series: Serie[],
+) {
+  return request<RegistroDeExercicios>(`/exercicios/treino/${sessionId}`, {
+    method: "PUT",
+    token,
+    body: JSON.stringify({ exercicio, series }),
+  });
+}
+
+export function removerExercicioDoTreino(
+  token: string,
+  sessionId: string,
+  exerciseId: string,
+) {
+  return request<RegistroDeExercicios>(
+    `/exercicios/treino/${sessionId}/${exerciseId}`,
+    { method: "DELETE", token },
+  );
+}
+
+export function buscarProgressao(token: string, exerciseId: string) {
+  return request<ProgressaoDeExercicio>(`/exercicios/${exerciseId}/progressao`, {
+    token,
+  });
+}
+
+/**
+ * O que foi feito da ultima vez. `ignorar` e o treino em andamento: sem ele, a
+ * sugestao viraria espelho do que acabou de ser digitado hoje.
+ */
+export function buscarUltimaVez(
+  token: string,
+  exerciseId: string,
+  ignorar?: string,
+) {
+  const query = ignorar ? `?ignorar=${encodeURIComponent(ignorar)}` : "";
+
+  return request<UltimaVezDoExercicio>(
+    `/exercicios/${exerciseId}/ultima-vez${query}`,
+    { token },
+  );
+}

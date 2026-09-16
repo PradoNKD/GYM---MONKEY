@@ -5,6 +5,7 @@ import {
   ResumoConquistas,
 } from "./Conquistas";
 import { MetaSemana } from "./MetaSemana";
+import { RegistroDeSeries } from "./RegistroDeSeries";
 import { RegistroTreino } from "./RegistroTreino";
 import { formatarHorario } from "./calculos";
 import type { LimitesDoRegistro } from "./rotulos";
@@ -74,6 +75,9 @@ export function TreinoScreen({
 }) {
   const emAndamento = resumo?.emAndamento ?? null;
   const conquistas = resumo?.conquistas;
+
+  // O treino de agora, ou o que acabou de ser fechado.
+  const sessaoDeSeries = emAndamento?.id ?? registro?.sessao.id ?? null;
 
   return (
     <>
@@ -194,6 +198,20 @@ export function TreinoScreen({
           onCancelar={registro.onCancelar}
         />
       )}
+
+      {/* Exercicios e series (Fase B).
+       *
+       * Aparece com o treino ABERTO -- e esse e o ponto todo. Serie e carga se
+       * anotam ENTRE as series, nao no check-out: ninguem lembra cinco
+       * exercicios com quatro series cada de memoria ja saindo da academia, e e
+       * ai que se abandona diario de treino.
+       *
+       * Fica depois do botao de propósito: durante o treino a acao principal
+       * continua sendo finalizar, e a lista e o que se consulta no intervalo.
+       *
+       * No instante seguinte ao check-out ela segue disponivel, para o ultimo
+       * exercicio ainda caber. */}
+      {sessaoDeSeries && <RegistroDeSeries sessionId={sessaoDeSeries} />}
     </>
   );
 }

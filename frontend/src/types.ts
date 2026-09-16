@@ -226,3 +226,54 @@ export interface Correcao {
   createdAt: string;
   authorId: string | null;
 }
+
+// --- Registro de treino, Fase B: exercicios, series e progressao ---
+
+/** Uma serie. `pesoG` em GRAMAS, e `null` quer dizer peso do corpo, nao zero. */
+export interface Serie {
+  reps: number;
+  pesoG: number | null;
+}
+
+/** Um exercicio do catalogo da pessoa. O catalogo se constroi do uso. */
+export interface Exercicio {
+  id: string;
+  nome: string;
+  /** Quantas series ja foram registradas. Ordena o autocompletar. */
+  series: number;
+}
+
+export interface ExercicioDoTreino {
+  id: string;
+  nome: string;
+  series: Serie[];
+}
+
+export interface RegistroDeExercicios {
+  exercicios: ExercicioDoTreino[];
+}
+
+export interface CatalogoDeExercicios {
+  exercicios: Exercicio[];
+}
+
+/** Um ponto do grafico: um dia. */
+export interface PontoDaProgressao {
+  dia: string;
+  /** Maior carga do dia, em gramas. `null` se so houve peso do corpo. */
+  cargaMaxG: number | null;
+  volumeG: number;
+  series: number;
+}
+
+export interface ProgressaoDeExercicio {
+  exercicio: { id: string; nome: string };
+  pontos: PontoDaProgressao[];
+  recorde: { dia: string; pesoG: number } | null;
+}
+
+/** O que foi feito da ultima vez -- a base do "repetir". */
+export interface UltimaVezDoExercicio {
+  dia: string | null;
+  series: Serie[];
+}
