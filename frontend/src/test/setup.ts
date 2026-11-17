@@ -2,6 +2,25 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+// Node 26 introduziu globalThis.localStorage experimental que pode vir como undefined
+// sem --localstorage-file. Assegura que localStorage aponte para window.localStorage do jsdom.
+if (typeof globalThis.localStorage === "undefined" || typeof globalThis.localStorage.clear !== "function") {
+  const storage: Record<string, string> = {};
+  const mockStorage = {
+    getItem: (key: string) => (key in storage ? storage[key] : null),
+    setItem: (key: string, value: string) => { storage[key] = String(value); },
+    removeItem: (key: string) => { delete storage[key]; },
+    clear: () => { Object.keys(storage).forEach((k) => delete storage[k]); },
+    get length() { return Object.keys(storage).length; },
+    key: (i: number) => Object.keys(storage)[i] ?? null,
+  };
+  Object.defineProperty(globalThis, "localStorage", {
+    value: typeof window !== "undefined" && window.localStorage ? window.localStorage : mockStorage,
+    configurable: true,
+    writable: true,
+  });
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

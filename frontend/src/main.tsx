@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { aplicarTema, lerTemaSalvo } from './tema'
+import { aplicarTema, lerTemaSalvo } from './utils/tema'
 
 // Antes de montar o React, e nao dentro de um componente: assim a tela de
 // login ja abre no tema escolhido (o botao de tema so existe depois de

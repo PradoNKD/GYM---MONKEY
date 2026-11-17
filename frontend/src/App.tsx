@@ -1,10 +1,10 @@
 import { useState } from "react";
 import "./App.css";
-import { AdminScreen } from "./AdminScreen";
-import { AuthProvider, useAuth } from "./AuthContext";
-import { AuthScreen } from "./AuthScreen";
-import { InstallPrompt } from "./InstallPrompt";
-import { PontoScreen } from "./PontoScreen";
+import { AdminScreen } from "./screens/AdminScreen";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthScreen } from "./screens/AuthScreen";
+import { InstallPrompt } from "./components/InstallPrompt";
+import { PontoScreen } from "./screens/PontoScreen";
 
 function AppContent() {
   const { token, user } = useAuth();
